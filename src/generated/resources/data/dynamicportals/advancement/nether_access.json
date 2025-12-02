@@ -1,0 +1,65 @@
+{
+  "criteria": {
+    "has_diamond": {
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:diamond"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "kill_overworld_mobs": {
+      "conditions": {
+        "required_bosses": [
+          "minecraft:elder_guardian"
+        ],
+        "required_items": [
+          "minecraft:diamond"
+        ],
+        "required_mobs": [
+          "minecraft:zombie",
+          "minecraft:skeleton",
+          "minecraft:creeper",
+          "minecraft:spider",
+          "minecraft:enderman",
+          "minecraft:witch",
+          "minecraft:slime",
+          "minecraft:drowned",
+          "minecraft:husk",
+          "minecraft:stray",
+          "minecraft:breeze",
+          "minecraft:bogged",
+          "minecraft:pillager",
+          "minecraft:vindicator",
+          "minecraft:evoker"
+        ]
+      },
+      "trigger": "dynamicportals:kill_requirement"
+    }
+  },
+  "display": {
+    "background": "minecraft:textures/gui/advancements/backgrounds/nether.png",
+    "description": {
+      "translate": "advancement.dynamicportals.nether_access.description"
+    },
+    "frame": "challenge",
+    "icon": {
+      "count": 1,
+      "id": "minecraft:netherrack"
+    },
+    "title": {
+      "translate": "advancement.dynamicportals.nether_access.title"
+    }
+  },
+  "requirements": [
+    [
+      "kill_overworld_mobs"
+    ],
+    [
+      "has_diamond"
+    ]
+  ],
+  "sends_telemetry_event": true
+}

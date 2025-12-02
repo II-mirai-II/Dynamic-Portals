@@ -1,0 +1,57 @@
+{
+  "parent": "dynamicportals:nether_access",
+  "criteria": {
+    "has_netherite": {
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:netherite_ingot"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "kill_nether_mobs": {
+      "conditions": {
+        "required_bosses": [
+          "minecraft:warden",
+          "minecraft:wither"
+        ],
+        "required_items": [
+          "minecraft:netherite_ingot"
+        ],
+        "required_mobs": [
+          "minecraft:ghast",
+          "minecraft:blaze",
+          "minecraft:wither_skeleton",
+          "minecraft:piglin",
+          "minecraft:piglin_brute",
+          "minecraft:hoglin"
+        ]
+      },
+      "trigger": "dynamicportals:kill_requirement"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancement.dynamicportals.end_access.description"
+    },
+    "frame": "challenge",
+    "icon": {
+      "count": 1,
+      "id": "minecraft:end_stone"
+    },
+    "title": {
+      "translate": "advancement.dynamicportals.end_access.title"
+    }
+  },
+  "requirements": [
+    [
+      "kill_nether_mobs"
+    ],
+    [
+      "has_netherite"
+    ]
+  ],
+  "sends_telemetry_event": true
+}

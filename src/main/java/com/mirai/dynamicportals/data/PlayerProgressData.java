@@ -1,0 +1,169 @@
+package com.mirai.dynamicportals.data;
+
+import com.mirai.dynamicportals.util.ModConstants;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.EntityType;
+import net.neoforged.neoforge.common.util.INBTSerializable;
+
+import java.util.*;
+
+public class PlayerProgressData implements INBTSerializable<CompoundTag> {
+    private final Map<EntityType<?>, Boolean> killedMobs = new HashMap<>();
+    private int deathCount = 0;
+    private final Set<ResourceLocation> unlockedAchievements = new HashSet<>();
+    private int dataVersion = ModConstants.CURRENT_DATA_VERSION;
+
+    public PlayerProgressData() {
+    }
+
+    // Mob kill tracking
+    public void markMobKilled(EntityType<?> entityType) {
+        killedMobs.put(entityType, true);
+    }
+
+    public boolean hasMobBeenKilled(EntityType<?> entityType) {
+        return killedMobs.getOrDefault(entityType, false);
+    }
+
+    public Map<EntityType<?>, Boolean> getKilledMobs() {
+        return Collections.unmodifiableMap(killedMobs);
+    }
+
+    // Death counter management
+    public void incrementDeathCount() {
+        deathCount++;
+    }
+
+    public int getDeathCount() {
+        return deathCount;
+    }
+
+    public void resetDeathCount() {
+        deathCount = 0;
+    }
+
+    public boolean shouldResetProgress() {
+        return deathCount >= ModConstants.DEATH_THRESHOLD;
+    }
+
+    // Achievement tracking
+    public void unlockAchievement(ResourceLocation achievement) {
+        unlockedAchievements.add(achievement);
+    }
+
+    public boolean isAchievementUnlocked(ResourceLocation achievement) {
+        return unlockedAchievements.contains(achievement);
+    }
+
+    public Set<ResourceLocation> getUnlockedAchievements() {
+        return Collections.unmodifiableSet(unlockedAchievements);
+    }
+
+    // Progress reset (called when death threshold reached)
+    public void resetProgress() {
+        // Only reset progress for achievements that haven't been unlocked
+        if (!isAchievementUnlocked(ModConstants.NETHER_ACCESS_ADVANCEMENT)) {
+            killedMobs.clear();
+        }
+        if (!isAchievementUnlocked(ModConstants.END_ACCESS_ADVANCEMENT)) {
+            // Keep nether access progress but clear nether mobs
+            killedMobs.entrySet().removeIf(entry -> isNetherMob(entry.getKey()));
+        }
+        deathCount = 0;
+    }
+
+    // Helper to determine if mob is from nether progression
+    private boolean isNetherMob(EntityType<?> type) {
+        return type == EntityType.GHAST ||
+               type == EntityType.BLAZE ||
+               type == EntityType.WITHER_SKELETON ||
+               type == EntityType.PIGLIN ||
+               type == EntityType.PIGLIN_BRUTE ||
+               type == EntityType.HOGLIN ||
+               type == EntityType.WARDEN ||
+               type == EntityType.WITHER;
+    }
+
+    // NBT Serialization
+    @Override
+    public CompoundTag serializeNBT(HolderLookup.Provider provider) {
+        CompoundTag nbt = new CompoundTag();
+        
+        nbt.putInt(ModConstants.NBT_DATA_VERSION, dataVersion);
+        nbt.putInt(ModConstants.NBT_DEATH_COUNT, deathCount);
+
+        // Save killed mobs
+        CompoundTag mobsTag = new CompoundTag();
+        for (Map.Entry<EntityType<?>, Boolean> entry : killedMobs.entrySet()) {
+            ResourceLocation mobId = EntityType.getKey(entry.getKey());
+            if (mobId != null) {
+                mobsTag.putBoolean(mobId.toString(), entry.getValue());
+            }
+        }
+        nbt.put(ModConstants.NBT_KILLED_MOBS, mobsTag);
+
+        // Save unlocked achievements
+        ListTag achievementsTag = new ListTag();
+        for (ResourceLocation achievement : unlockedAchievements) {
+            achievementsTag.add(StringTag.valueOf(achievement.toString()));
+        }
+        nbt.put(ModConstants.NBT_UNLOCKED_ACHIEVEMENTS, achievementsTag);
+
+        return nbt;
+    }
+
+    @Override
+    public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
+        // Load data version for potential migrations
+        dataVersion = nbt.getInt(ModConstants.NBT_DATA_VERSION);
+        
+        // Migrate data if needed
+        if (dataVersion < ModConstants.CURRENT_DATA_VERSION) {
+            migrateData(nbt, dataVersion);
+        }
+
+        deathCount = nbt.getInt(ModConstants.NBT_DEATH_COUNT);
+
+        // Load killed mobs
+        killedMobs.clear();
+        if (nbt.contains(ModConstants.NBT_KILLED_MOBS)) {
+            CompoundTag mobsTag = nbt.getCompound(ModConstants.NBT_KILLED_MOBS);
+            for (String key : mobsTag.getAllKeys()) {
+                ResourceLocation mobId = ResourceLocation.parse(key);
+                Optional<EntityType<?>> entityType = EntityType.byString(mobId.toString());
+                entityType.ifPresent(type -> killedMobs.put(type, mobsTag.getBoolean(key)));
+            }
+        }
+
+        // Load unlocked achievements
+        unlockedAchievements.clear();
+        if (nbt.contains(ModConstants.NBT_UNLOCKED_ACHIEVEMENTS)) {
+            ListTag achievementsTag = nbt.getList(ModConstants.NBT_UNLOCKED_ACHIEVEMENTS, Tag.TAG_STRING);
+            for (Tag tag : achievementsTag) {
+                unlockedAchievements.add(ResourceLocation.parse(tag.getAsString()));
+            }
+        }
+    }
+
+    private void migrateData(CompoundTag nbt, int oldVersion) {
+        // Future data migrations can be handled here
+        // For now, version 1 is the initial version
+        if (oldVersion < 1) {
+            // Migration logic for pre-v1 data
+        }
+    }
+
+    public void copyFrom(PlayerProgressData other) {
+        this.killedMobs.clear();
+        this.killedMobs.putAll(other.killedMobs);
+        this.deathCount = other.deathCount;
+        this.unlockedAchievements.clear();
+        this.unlockedAchievements.addAll(other.unlockedAchievements);
+        this.dataVersion = other.dataVersion;
+    }
+}

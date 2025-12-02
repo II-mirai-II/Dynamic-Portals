@@ -1,0 +1,26 @@
+{
+  "message.dynamicportals.portal_blocked.nether": "You cannot enter the Nether! Complete the Nether Access achievement first.",
+  "message.dynamicportals.portal_blocked.end": "You cannot enter the End! Complete the End Access achievement first.",
+  "message.dynamicportals.progress_reset": "Your progress has been reset due to dying 10 times!",
+  "message.dynamicportals.achievement_unlocked": "Achievement unlocked: %s",
+
+  "hud.dynamicportals.title": "Portal Progress",
+  "hud.dynamicportals.deaths": "Deaths: %s/%s",
+  "hud.dynamicportals.progress.overworld": "Progress: %s/%s",
+  "hud.dynamicportals.progress.nether": "Progress: %s/%s",
+  "hud.dynamicportals.phase.overworld": "Overworld → Nether",
+  "hud.dynamicportals.phase.nether": "Nether → End",
+  "hud.dynamicportals.required_mobs": "Required Mobs:",
+  "hud.dynamicportals.required_items": "Required Items:",
+  "hud.dynamicportals.required_bosses": "Required Bosses:",
+  "hud.dynamicportals.completed": "✓ COMPLETED",
+  "hud.dynamicportals.incomplete": "✗ Incomplete",
+
+  "advancement.dynamicportals.nether_access.title": "Gateway to the Nether",
+  "advancement.dynamicportals.nether_access.description": "Defeat all required overworld mobs, kill the Elder Guardian, and obtain a diamond to unlock the Nether portal",
+  "advancement.dynamicportals.end_access.title": "Path to the End",
+  "advancement.dynamicportals.end_access.description": "Defeat all required nether mobs, kill the Warden and Wither, and obtain netherite to unlock the End portal",
+
+  "key.dynamicportals.toggle_hud": "Toggle Portal Progress HUD",
+  "key.categories.dynamicportals": "Dynamic Portals"
+}

@@ -1,0 +1,26 @@
+{
+  "message.dynamicportals.portal_blocked.nether": "Você não pode entrar no Nether! Complete a conquista de Acesso ao Nether primeiro.",
+  "message.dynamicportals.portal_blocked.end": "Você não pode entrar no End! Complete a conquista de Acesso ao End primeiro.",
+  "message.dynamicportals.progress_reset": "Seu progresso foi resetado por morrer 10 vezes!",
+  "message.dynamicportals.achievement_unlocked": "Conquista desbloqueada: %s",
+
+  "hud.dynamicportals.title": "Progresso de Portais",
+  "hud.dynamicportals.deaths": "Mortes: %s/%s",
+  "hud.dynamicportals.progress.overworld": "Progresso: %s/%s",
+  "hud.dynamicportals.progress.nether": "Progresso: %s/%s",
+  "hud.dynamicportals.phase.overworld": "Overworld → Nether",
+  "hud.dynamicportals.phase.nether": "Nether → End",
+  "hud.dynamicportals.required_mobs": "Mobs Necessários:",
+  "hud.dynamicportals.required_items": "Itens Necessários:",
+  "hud.dynamicportals.required_bosses": "Chefes Necessários:",
+  "hud.dynamicportals.completed": "✓ COMPLETO",
+  "hud.dynamicportals.incomplete": "✗ Incompleto",
+
+  "advancement.dynamicportals.nether_access.title": "Portal para o Nether",
+  "advancement.dynamicportals.nether_access.description": "Derrote todos os mobs do overworld necessários, mate o Elder Guardian e obtenha um diamante para desbloquear o portal do Nether",
+  "advancement.dynamicportals.end_access.title": "Caminho para o End",
+  "advancement.dynamicportals.end_access.description": "Derrote todos os mobs do nether necessários, mate o Warden e o Wither, e obtenha netherite para desbloquear o portal do End",
+
+  "key.dynamicportals.toggle_hud": "Alternar HUD de Progresso de Portais",
+  "key.categories.dynamicportals": "Dynamic Portals"
+}

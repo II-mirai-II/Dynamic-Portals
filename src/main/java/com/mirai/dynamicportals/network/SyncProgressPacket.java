@@ -1,0 +1,91 @@
+package com.mirai.dynamicportals.network;
+
+import com.mirai.dynamicportals.data.PlayerProgressData;
+import com.mirai.dynamicportals.util.ModConstants;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.EntityType;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+public record SyncProgressPacket(
+        Map<EntityType<?>, Boolean> killedMobs,
+        int deathCount,
+        Set<ResourceLocation> unlockedAchievements
+) implements CustomPacketPayload {
+
+    public static final Type<SyncProgressPacket> TYPE = new Type<>(ModConstants.id("sync_progress"));
+
+    public static final StreamCodec<ByteBuf, SyncProgressPacket> STREAM_CODEC = StreamCodec.composite(
+            new StreamCodec<>() {
+                @Override
+                public Map<EntityType<?>, Boolean> decode(ByteBuf buffer) {
+                    int size = ByteBufCodecs.VAR_INT.decode(buffer);
+                    Map<EntityType<?>, Boolean> map = new HashMap<>();
+                    for (int i = 0; i < size; i++) {
+                        ResourceLocation id = ResourceLocation.STREAM_CODEC.decode(buffer);
+                        boolean killed = ByteBufCodecs.BOOL.decode(buffer);
+                        EntityType<?> entityType = BuiltInRegistries.ENTITY_TYPE.get(id);
+                        if (entityType != null) {
+                            map.put(entityType, killed);
+                        }
+                    }
+                    return map;
+                }
+
+                @Override
+                public void encode(ByteBuf buffer, Map<EntityType<?>, Boolean> map) {
+                    ByteBufCodecs.VAR_INT.encode(buffer, map.size());
+                    for (Map.Entry<EntityType<?>, Boolean> entry : map.entrySet()) {
+                        ResourceLocation id = BuiltInRegistries.ENTITY_TYPE.getKey(entry.getKey());
+                        ResourceLocation.STREAM_CODEC.encode(buffer, id);
+                        ByteBufCodecs.BOOL.encode(buffer, entry.getValue());
+                    }
+                }
+            },
+            SyncProgressPacket::killedMobs,
+            ByteBufCodecs.VAR_INT,
+            SyncProgressPacket::deathCount,
+            new StreamCodec<>() {
+                @Override
+                public Set<ResourceLocation> decode(ByteBuf buffer) {
+                    int size = ByteBufCodecs.VAR_INT.decode(buffer);
+                    Set<ResourceLocation> set = new HashSet<>();
+                    for (int i = 0; i < size; i++) {
+                        set.add(ResourceLocation.STREAM_CODEC.decode(buffer));
+                    }
+                    return set;
+                }
+
+                @Override
+                public void encode(ByteBuf buffer, Set<ResourceLocation> set) {
+                    ByteBufCodecs.VAR_INT.encode(buffer, set.size());
+                    for (ResourceLocation id : set) {
+                        ResourceLocation.STREAM_CODEC.encode(buffer, id);
+                    }
+                }
+            },
+            SyncProgressPacket::unlockedAchievements,
+            SyncProgressPacket::new
+    );
+
+    public static SyncProgressPacket fromProgressData(PlayerProgressData data) {
+        return new SyncProgressPacket(
+                new HashMap<>(data.getKilledMobs()),
+                data.getDeathCount(),
+                new HashSet<>(data.getUnlockedAchievements())
+        );
+    }
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
+    }
+}
