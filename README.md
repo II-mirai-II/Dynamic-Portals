@@ -4,7 +4,7 @@
   <h1>Dynamic Portals</h1>
 
   <p>
-    A progression mod for Minecraft NeoForge 1.21.1 that locks dimensional portals behind monster hunting achievements.
+    A progression mod for Minecraft NeoForge that locks dimensional portals behind monster hunting achievements and more ways.
   </p>
 
   <a href="https://github.com/II-mirai-II/Dynamic-Portals/releases">
