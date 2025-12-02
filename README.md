@@ -1,10 +1,25 @@
-# Dynamic Portals
+<div align="center">
+  <img src="images/banner.png" alt="Dynamic Portals Banner" width="100%">
+  
+  <h1>Dynamic Portals</h1>
 
-A progression mod for Minecraft NeoForge 1.21.1 that locks dimensional portals behind monster hunting achievements.
+  <p>
+    A progression mod for Minecraft NeoForge 1.21.1 that locks dimensional portals behind monster hunting achievements.
+  </p>
+
+  <a href="https://github.com/II-mirai-II/Dynamic-Portals/releases">
+    <img src="https://img.shields.io/github/v/release/II-mirai-II/Dynamic-Portals?style=for-the-badge&color=purple" alt="Latest Release">
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/github/license/II-mirai-II/Dynamic-Portals?style=for-the-badge&color=blue" alt="License">
+  </a>
+</div>
+
+<br>
 
 ## 📖 Description
 
-**Dynamic Portals** transforms Minecraft's dimensional progression into an epic monster hunting journey. Players must hunt and defeat specific creatures from each dimension to unlock access to dimensional portals.
+**Dynamic Portals** transforms Minecraft's dimensional progression into an epic monster hunting journey an more! Players must hunt and defeat specific creatures from each dimension and others objectives to unlock access to dimensional portals.
 
 ### Features
 
@@ -13,7 +28,6 @@ A progression mod for Minecraft NeoForge 1.21.1 that locks dimensional portals b
 - 💀 **Death Penalty**: Progress resets every 10 deaths (until achievement is completed)
 - 🤝 **Assist System**: Team up with friends - assists count towards progress
 - 📊 **Progress HUD**: Track your hunting progress with a toggleable HUD (default key: K)
-- 🔧 **Extensible API**: Ready for integration with other dimension mods (Twilight Forest, Aether, etc.)
 - 🌍 **Localization**: Full support for English and Portuguese (Brazil)
 
 ## 🎮 Progression Requirements
@@ -37,7 +51,7 @@ A progression mod for Minecraft NeoForge 1.21.1 that locks dimensional portals b
 
 ## 🔧 Installation
 
-1. Download the latest release from [Releases](https://github.com/YOUR_USERNAME/Dynamic-Portals/releases)
+1. Download the latest release from [Releases](https://github.com/II-mirai-II/Dynamic-Portals/releases)
 2. Place the `.jar` file in your `mods` folder
 3. Launch Minecraft with NeoForge 1.21.1
 
@@ -57,7 +71,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👨‍💻 Author
 
-- **Mirai** - *Firts work*
+- **Mirai**
 
 ## 🤝 Contributing
 
@@ -68,7 +82,3 @@ Contributions, issues, and feature requests are welcome!
 If you encounter any issues or have questions, please open an issue on GitHub.
 
 ---
-
-**Minecraft Version:** 1.21.1  
-**NeoForge Version:** 21.1.216  
-**Mod Version:** 1.0.0
