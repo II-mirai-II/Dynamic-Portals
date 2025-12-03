@@ -7,8 +7,8 @@
     A progression mod for Minecraft NeoForge that locks dimensional portals behind monster hunting achievements and more ways.
   </p>
 
-  <a href="https://github.com/II-mirai-II/Dynamic-Portals/releases">
-    <img src="https://img.shields.io/github/v/release/II-mirai-II/Dynamic-Portals?style=for-the-badge&color=purple" alt="Latest Release">
+  <a href="https://neoforged.net/">
+    <img src="https://img.shields.io/badge/NeoForge-1.21.1-orange?style=for-the-badge" alt="NeoForge 1.21.1">
   </a>
   <a href="LICENSE">
     <img src="https://img.shields.io/github/license/II-mirai-II/Dynamic-Portals?style=for-the-badge&color=blue" alt="License">
