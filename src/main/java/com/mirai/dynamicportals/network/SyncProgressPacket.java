@@ -9,6 +9,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.item.Item;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -17,6 +18,7 @@ import java.util.Set;
 
 public record SyncProgressPacket(
         Map<EntityType<?>, Boolean> killedMobs,
+        Set<Item> obtainedItems,
         int deathCount,
         Set<ResourceLocation> unlockedAchievements
 ) implements CustomPacketPayload {
@@ -51,6 +53,31 @@ public record SyncProgressPacket(
                 }
             },
             SyncProgressPacket::killedMobs,
+            new StreamCodec<>() {
+                @Override
+                public Set<Item> decode(ByteBuf buffer) {
+                    int size = ByteBufCodecs.VAR_INT.decode(buffer);
+                    Set<Item> set = new HashSet<>();
+                    for (int i = 0; i < size; i++) {
+                        ResourceLocation id = ResourceLocation.STREAM_CODEC.decode(buffer);
+                        Item item = BuiltInRegistries.ITEM.get(id);
+                        if (item != null) {
+                            set.add(item);
+                        }
+                    }
+                    return set;
+                }
+
+                @Override
+                public void encode(ByteBuf buffer, Set<Item> set) {
+                    ByteBufCodecs.VAR_INT.encode(buffer, set.size());
+                    for (Item item : set) {
+                        ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+                        ResourceLocation.STREAM_CODEC.encode(buffer, id);
+                    }
+                }
+            },
+            SyncProgressPacket::obtainedItems,
             ByteBufCodecs.VAR_INT,
             SyncProgressPacket::deathCount,
             new StreamCodec<>() {
@@ -79,6 +106,7 @@ public record SyncProgressPacket(
     public static SyncProgressPacket fromProgressData(PlayerProgressData data) {
         return new SyncProgressPacket(
                 new HashMap<>(data.getKilledMobs()),
+                new HashSet<>(data.getObtainedItems()),
                 data.getDeathCount(),
                 new HashSet<>(data.getUnlockedAchievements())
         );

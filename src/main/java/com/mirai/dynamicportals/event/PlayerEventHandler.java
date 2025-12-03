@@ -7,8 +7,10 @@ import com.mirai.dynamicportals.util.ModConstants;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Items;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.player.ItemEntityPickupEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -50,6 +52,26 @@ public class PlayerEventHandler {
             // Sync to client if on server
             if (newPlayer instanceof ServerPlayer serverPlayer) {
                 PacketDistributor.sendToPlayer(serverPlayer, SyncProgressPacket.fromProgressData(newData));
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public void onItemPickup(ItemEntityPickupEvent.Pre event) {
+        if (!(event.getPlayer() instanceof ServerPlayer player)) {
+            return;
+        }
+
+        PlayerProgressData progressData = player.getData(ModAttachments.PLAYER_PROGRESS);
+        net.minecraft.world.item.Item pickedItem = event.getItemEntity().getItem().getItem();
+
+        // Track diamond and netherite ingot
+        if (pickedItem == Items.DIAMOND || pickedItem == Items.NETHERITE_INGOT) {
+            if (!progressData.hasItemBeenObtained(pickedItem)) {
+                progressData.markItemObtained(pickedItem);
+                
+                // Sync to client
+                PacketDistributor.sendToPlayer(player, SyncProgressPacket.fromProgressData(progressData));
             }
         }
     }

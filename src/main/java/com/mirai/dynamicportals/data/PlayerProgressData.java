@@ -14,6 +14,7 @@ import java.util.*;
 
 public class PlayerProgressData implements INBTSerializable<CompoundTag> {
     private final Map<EntityType<?>, Boolean> killedMobs = new HashMap<>();
+    private final Set<net.minecraft.world.item.Item> obtainedItems = new HashSet<>();
     private int deathCount = 0;
     private final Set<ResourceLocation> unlockedAchievements = new HashSet<>();
     private int dataVersion = ModConstants.CURRENT_DATA_VERSION;
@@ -32,6 +33,19 @@ public class PlayerProgressData implements INBTSerializable<CompoundTag> {
 
     public Map<EntityType<?>, Boolean> getKilledMobs() {
         return Collections.unmodifiableMap(killedMobs);
+    }
+
+    // Item tracking
+    public void markItemObtained(net.minecraft.world.item.Item item) {
+        obtainedItems.add(item);
+    }
+
+    public boolean hasItemBeenObtained(net.minecraft.world.item.Item item) {
+        return obtainedItems.contains(item);
+    }
+
+    public Set<net.minecraft.world.item.Item> getObtainedItems() {
+        return Collections.unmodifiableSet(obtainedItems);
     }
 
     // Death counter management
@@ -69,10 +83,16 @@ public class PlayerProgressData implements INBTSerializable<CompoundTag> {
         // Only reset progress for achievements that haven't been unlocked
         if (!isAchievementUnlocked(ModConstants.NETHER_ACCESS_ADVANCEMENT)) {
             killedMobs.clear();
+            obtainedItems.clear();
         }
         if (!isAchievementUnlocked(ModConstants.END_ACCESS_ADVANCEMENT)) {
             // Keep nether access progress but clear nether mobs
             killedMobs.entrySet().removeIf(entry -> isNetherMob(entry.getKey()));
+            // Clear nether items
+            obtainedItems.removeIf(item -> {
+                ResourceLocation itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item);
+                return itemId != null && itemId.toString().contains("netherite");
+            });
         }
         deathCount = 0;
     }
@@ -107,6 +127,16 @@ public class PlayerProgressData implements INBTSerializable<CompoundTag> {
         }
         nbt.put(ModConstants.NBT_KILLED_MOBS, mobsTag);
 
+        // Save obtained items
+        ListTag itemsTag = new ListTag();
+        for (net.minecraft.world.item.Item item : obtainedItems) {
+            ResourceLocation itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item);
+            if (itemId != null) {
+                itemsTag.add(StringTag.valueOf(itemId.toString()));
+            }
+        }
+        nbt.put(ModConstants.NBT_OBTAINED_ITEMS, itemsTag);
+
         // Save unlocked achievements
         ListTag achievementsTag = new ListTag();
         for (ResourceLocation achievement : unlockedAchievements) {
@@ -140,6 +170,19 @@ public class PlayerProgressData implements INBTSerializable<CompoundTag> {
             }
         }
 
+        // Load obtained items
+        obtainedItems.clear();
+        if (nbt.contains(ModConstants.NBT_OBTAINED_ITEMS)) {
+            ListTag itemsTag = nbt.getList(ModConstants.NBT_OBTAINED_ITEMS, Tag.TAG_STRING);
+            for (Tag tag : itemsTag) {
+                ResourceLocation itemId = ResourceLocation.parse(tag.getAsString());
+                net.minecraft.world.item.Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(itemId);
+                if (item != null) {
+                    obtainedItems.add(item);
+                }
+            }
+        }
+
         // Load unlocked achievements
         unlockedAchievements.clear();
         if (nbt.contains(ModConstants.NBT_UNLOCKED_ACHIEVEMENTS)) {
@@ -161,6 +204,8 @@ public class PlayerProgressData implements INBTSerializable<CompoundTag> {
     public void copyFrom(PlayerProgressData other) {
         this.killedMobs.clear();
         this.killedMobs.putAll(other.killedMobs);
+        this.obtainedItems.clear();
+        this.obtainedItems.addAll(other.obtainedItems);
         this.deathCount = other.deathCount;
         this.unlockedAchievements.clear();
         this.unlockedAchievements.addAll(other.unlockedAchievements);

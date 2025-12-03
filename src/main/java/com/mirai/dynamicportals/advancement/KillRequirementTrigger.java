@@ -69,8 +69,10 @@ public class KillRequirementTrigger extends SimpleCriterionTrigger<KillRequireme
         }
 
         private boolean hasObtainedItem(ServerPlayer player, Item item) {
-            // Check if player has the item in inventory or has ever had it
-            return player.getInventory().hasAnyMatching(stack -> stack.is(item));
+            PlayerProgressData progressData = player.getData(ModAttachments.PLAYER_PROGRESS);
+            // Check both persistent tracking and current inventory
+            return progressData.hasItemBeenObtained(item) || 
+                   player.getInventory().hasAnyMatching(stack -> stack.is(item));
         }
     }
 }

@@ -48,6 +48,7 @@ public class ModConstants {
 
     // NBT keys
     public static final String NBT_KILLED_MOBS = "KilledMobs";
+    public static final String NBT_OBTAINED_ITEMS = "ObtainedItems";
     public static final String NBT_DEATH_COUNT = "DeathCount";
     public static final String NBT_UNLOCKED_ACHIEVEMENTS = "UnlockedAchievements";
     public static final String NBT_DATA_VERSION = "DataVersion";
