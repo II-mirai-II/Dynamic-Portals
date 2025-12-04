@@ -1,8 +1,11 @@
 package com.mirai.dynamicportals.client;
 
 import com.mirai.dynamicportals.util.ModConstants;
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -22,6 +25,50 @@ public class ProgressHUD {
     private static boolean hudVisible = false;
     private static int currentPhaseIndex = 0;
     private static List<ResourceLocation> orderedDimensions = null;
+    
+    // Performance caches
+    private static final Map<EntityType<?>, ResourceLocation> ENTITY_ID_CACHE = new HashMap<>();
+    private static final Map<EntityType<?>, Component> MOB_NAME_CACHE = new HashMap<>();
+    private static final Map<Item, Component> ITEM_NAME_CACHE = new HashMap<>();
+    private static RenderCache currentRenderCache = null;
+    private static boolean cacheDirty = true;
+    private static ResourceLocation lastDimension = null;
+    
+    /**
+     * Cache for rendered components to avoid recreation every frame
+     * Now uses Component objects directly for maximum performance
+     */
+    private static class RenderCache {
+        final Component title;
+        final Component tabHint;
+        final List<RenderedLine> lines;
+        final int hudHeight;
+        final boolean isCompleted;
+        final int hudWidth;
+        
+        RenderCache(Component title, Component tabHint, List<RenderedLine> lines, int hudHeight, boolean isCompleted, int hudWidth) {
+            this.title = title;
+            this.tabHint = tabHint;
+            this.lines = lines;
+            this.hudHeight = hudHeight;
+            this.isCompleted = isCompleted;
+            this.hudWidth = hudWidth;
+        }
+    }
+    
+    private static class RenderedLine {
+        final Component component;
+        final int x;
+        final int yOffset;
+        final int color;
+        
+        RenderedLine(Component component, int x, int yOffset, int color) {
+            this.component = component;
+            this.x = x;
+            this.yOffset = yOffset;
+            this.color = color;
+        }
+    }
 
     @SubscribeEvent
     public static void onKeyInput(InputEvent.Key event) {
@@ -30,6 +77,7 @@ public class ProgressHUD {
             if (hudVisible) {
                 // Reset to first phase when opening
                 currentPhaseIndex = 0;
+                cacheDirty = true; // Force cache rebuild
             }
             
             // Play UI click sound when toggling HUD
@@ -43,6 +91,7 @@ public class ProgressHUD {
         if (hudVisible && ModKeyBindings.SWITCH_PHASE_KEY.consumeClick()) {
             if (orderedDimensions != null && !orderedDimensions.isEmpty()) {
                 currentPhaseIndex = (currentPhaseIndex + 1) % orderedDimensions.size();
+                cacheDirty = true; // Force cache rebuild on phase switch
                 
                 // Play page turn sound
                 Minecraft mc = Minecraft.getInstance();
@@ -68,7 +117,7 @@ public class ProgressHUD {
         
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         
-        // Get all requirements from CLIENT CACHE
+        // Get all requirements from CLIENT CACHE (now optimized)
         Map<ResourceLocation, ClientRequirementsCache.CachedRequirement> allRequirements = ClientRequirementsCache.getAllRequirements();
         
         if (allRequirements.isEmpty()) {
@@ -92,15 +141,6 @@ public class ProgressHUD {
             currentPhaseIndex = 0;
         }
         
-        Set<ResourceLocation> killedMobIds = ClientProgressCache.getKilledMobIds();
-        Set<ResourceLocation> unlockedAchievements = ClientProgressCache.getUnlockedAchievements();
-        
-        // Calculate dimensions
-        int hudWidth = 320;
-        int hudX = screenWidth - hudWidth - 10;
-        int hudY = 10;
-        
-        // Render current phase
         ResourceLocation currentDim = orderedDimensions.get(currentPhaseIndex);
         ClientRequirementsCache.CachedRequirement req = allRequirements.get(currentDim);
         
@@ -108,39 +148,81 @@ public class ProgressHUD {
             return;
         }
         
-        // Calculate height dynamically
-        int hudHeight = calculateRequirementHeight(req);
+        // Check if we need to rebuild the cache (dirty flag system)
+        if (currentRenderCache == null || cacheDirty || !currentDim.equals(lastDimension)) {
+            currentRenderCache = buildRenderCache(req, mc);
+            cacheDirty = false;
+            lastDimension = currentDim;
+        }
         
-        // Background
-        guiGraphics.fill(hudX - 5, hudY - 5, hudX + hudWidth + 5, hudY + hudHeight + 5, 0xDD000000);
-        guiGraphics.fill(hudX - 5, hudY - 5, hudX + hudWidth + 5, hudY - 3, 0xFF4A90E2);
+        // Calculate dimensions
+        int hudX = screenWidth - currentRenderCache.hudWidth - 10;
+        int hudY = 10;
+        
+        // Background (optimized - single color fill)
+        guiGraphics.fill(hudX - 5, hudY - 5, hudX + currentRenderCache.hudWidth + 5, hudY + currentRenderCache.hudHeight + 5, 0xDD000000);
+        guiGraphics.fill(hudX - 5, hudY - 5, hudX + currentRenderCache.hudWidth + 5, hudY - 3, 0xFF4A90E2);
+        
+        // BATCH TEXT RENDERING - All text in single batch for maximum performance
+        PoseStack poseStack = guiGraphics.pose();
+        MultiBufferSource.BufferSource bufferSource = mc.renderBuffers().bufferSource();
+        Font font = mc.font;
         
         int yOffset = hudY;
         
-        // Title
-        Component title = Component.literal("§6§lPortal Requirements");
-        int titleWidth = mc.font.width(title);
-        guiGraphics.drawString(mc.font, title, hudX + (hudWidth - titleWidth) / 2, yOffset, 0xFFFFFF);
+        // Title (centered, cached Component)
+        int titleWidth = font.width(currentRenderCache.title);
+        font.drawInBatch(currentRenderCache.title, hudX + (currentRenderCache.hudWidth - titleWidth) / 2, yOffset, 0xFFFFFF, false, poseStack.last().pose(), bufferSource, Font.DisplayMode.NORMAL, 0, 15728880);
         yOffset += 15;
         
-        // Phase navigation hint - show the actual key binding
-        String switchKey = ModKeyBindings.SWITCH_PHASE_KEY.getTranslatedKeyMessage().getString();
-        Component tabHint = Component.literal("§7[" + switchKey + "] Next Phase §8(" + (currentPhaseIndex + 1) + "/" + orderedDimensions.size() + ")");
-        guiGraphics.drawString(mc.font, tabHint, hudX + 5, yOffset, 0xAAAAAA);
+        // Phase navigation hint (cached Component)
+        font.drawInBatch(currentRenderCache.tabHint, hudX + 5, yOffset, 0xAAAAAA, false, poseStack.last().pose(), bufferSource, Font.DisplayMode.NORMAL, 0, 15728880);
         yOffset += 15;
         
-        // Render the current requirement
-        renderRequirement(guiGraphics, mc, hudX, yOffset, hudWidth, req, killedMobIds, unlockedAchievements);
+        // Render all cached lines in batch
+        for (RenderedLine line : currentRenderCache.lines) {
+            font.drawInBatch(line.component, hudX + line.x, yOffset + line.yOffset, line.color, false, poseStack.last().pose(), bufferSource, Font.DisplayMode.NORMAL, 0, 15728880);
+        }
+        
+        // Flush the batch - all text rendered in one go!
+        bufferSource.endBatch();
     }
 
-    private static void renderRequirement(GuiGraphics guiGraphics, Minecraft mc, int hudX, int yOffset, 
-                                          int hudWidth, ClientRequirementsCache.CachedRequirement req, 
-                                          Set<ResourceLocation> killedMobIds, 
-                                          Set<ResourceLocation> unlockedAchievements) {
+    /**
+     * Clear all caches - call when requirements or progress update
+     */
+    public static void invalidateCache() {
+        cacheDirty = true;
+        currentRenderCache = null;
+        lastDimension = null;
+        orderedDimensions = null;
+        // Keep name/id caches as they're static and permanent
+    }
+    
+
+    
+    /**
+     * Build complete render cache for current requirement
+     * Optimized with permanent Component caching and StringBuilder
+     */
+    private static RenderCache buildRenderCache(ClientRequirementsCache.CachedRequirement req, Minecraft mc) {
+        Set<ResourceLocation> killedMobIds = ClientProgressCache.getKilledMobIds();
+        Set<ResourceLocation> unlockedAchievements = ClientProgressCache.getUnlockedAchievements();
+        
+        // Title (cached Component)
+        Component title = Component.literal("§6§lPortal Requirements");
+        
+        // Phase navigation hint (optimized with StringBuilder)
+        String switchKey = ModKeyBindings.SWITCH_PHASE_KEY.getTranslatedKeyMessage().getString();
+        StringBuilder tabHintBuilder = new StringBuilder(50);
+        tabHintBuilder.append("§7[").append(switchKey).append("] Next Phase §8(").append(currentPhaseIndex + 1).append("/").append(orderedDimensions.size()).append(")");
+        Component tabHint = Component.literal(tabHintBuilder.toString());
+        
+        List<RenderedLine> lines = new ArrayList<>();
+        int yOffset = 0;
         
         // Check achievement status
-        boolean achievementUnlocked = req.getAdvancement() == null || 
-                                      unlockedAchievements.contains(req.getAdvancement());
+        boolean achievementUnlocked = req.getAdvancement() == null || unlockedAchievements.contains(req.getAdvancement());
         
         // Count total and killed
         List<EntityType<?>> allMobs = new ArrayList<>();
@@ -153,7 +235,7 @@ public class ProgressHUD {
         
         int killedMobs = 0;
         for (EntityType<?> mob : allMobs) {
-            ResourceLocation mobId = BuiltInRegistries.ENTITY_TYPE.getKey(mob);
+            ResourceLocation mobId = getCachedEntityId(mob);
             if (mobId != null && killedMobIds.contains(mobId)) {
                 killedMobs++;
             }
@@ -169,24 +251,29 @@ public class ProgressHUD {
         int totalCompleted = killedMobs + obtainedItems;
         boolean isCompleted = totalCompleted == totalRequirements && achievementUnlocked;
         
-        // Dimension title
+        // Dimension title (optimized with StringBuilder)
         String dimName = getDimensionName(req.getDimension());
         String statusIcon = isCompleted ? "§a✔" : (achievementUnlocked ? "§e⚠" : "§c✘");
         int dimColor = req.getDimension().getPath().contains("nether") ? 0xFFFF55 : 0xFF5555;
-        Component dimTitle = Component.literal(statusIcon + " ").append(Component.literal(dimName).withStyle(style -> style.withBold(true)));
-        guiGraphics.drawString(mc.font, dimTitle, hudX + 5, yOffset, dimColor);
+        StringBuilder dimTitleBuilder = new StringBuilder(50);
+        dimTitleBuilder.append(statusIcon).append(" ").append(dimName);
+        Component dimTitle = Component.literal(dimTitleBuilder.toString()).withStyle(style -> style.withBold(true));
+        lines.add(new RenderedLine(dimTitle, 5, yOffset, dimColor));
         yOffset += 15;
         
-        // Progress counter
-        Component progressText = Component.literal("§7Progress: §f" + totalCompleted + "/" + totalRequirements);
-        guiGraphics.drawString(mc.font, progressText, hudX + 5, yOffset, 0xFFFFFF);
+        // Progress counter (optimized with StringBuilder)
+        StringBuilder progressBuilder = new StringBuilder(30);
+        progressBuilder.append("§7Progress: §f").append(totalCompleted).append("/").append(totalRequirements);
+        Component progressText = Component.literal(progressBuilder.toString());
+        lines.add(new RenderedLine(progressText, 5, yOffset, 0xFFFFFF));
         yOffset += 15;
         
         // If completed, show completion message
         if (isCompleted) {
             Component completedMsg = Component.literal("§a§l✔ COMPLETED!");
-            guiGraphics.drawString(mc.font, completedMsg, hudX + 5, yOffset, 0x55FF55);
-            return;
+            lines.add(new RenderedLine(completedMsg, 5, yOffset, 0x55FF55));
+            int hudHeight = 60 + yOffset;
+            return new RenderCache(title, tabHint, lines, hudHeight, true, 320);
         }
         
         yOffset += 5; // Spacing
@@ -194,11 +281,13 @@ public class ProgressHUD {
         // SECTION 1: Regular Mobs
         if (!req.getMobs().isEmpty()) {
             Component mobsHeader = Component.literal("§b§lRequired Mobs");
-            guiGraphics.drawString(mc.font, mobsHeader, hudX + 5, yOffset, 0xAAAAFF);
+            lines.add(new RenderedLine(mobsHeader, 5, yOffset, 0xAAAAFF));
             yOffset += 12;
             
             for (EntityType<?> mob : req.getMobs()) {
-                yOffset = renderMobLine(guiGraphics, mc, hudX + 15, yOffset, mob, killedMobIds);
+                RenderedLine line = buildMobLine(mob, killedMobIds, 15, yOffset);
+                lines.add(line);
+                yOffset += 12;
             }
             yOffset += 8;
         }
@@ -206,11 +295,13 @@ public class ProgressHUD {
         // SECTION 2: Bosses
         if (!req.getBosses().isEmpty()) {
             Component bossHeader = Component.literal("§c§lRequired Bosses");
-            guiGraphics.drawString(mc.font, bossHeader, hudX + 5, yOffset, 0xFFAAAA);
+            lines.add(new RenderedLine(bossHeader, 5, yOffset, 0xFFAAAA));
             yOffset += 12;
             
             for (EntityType<?> boss : req.getBosses()) {
-                yOffset = renderMobLine(guiGraphics, mc, hudX + 15, yOffset, boss, killedMobIds);
+                RenderedLine line = buildMobLine(boss, killedMobIds, 15, yOffset);
+                lines.add(line);
+                yOffset += 12;
             }
             yOffset += 8;
         }
@@ -218,75 +309,93 @@ public class ProgressHUD {
         // SECTION 3: Items
         if (!req.getItems().isEmpty()) {
             Component itemsHeader = Component.literal("§a§lRequired Items");
-            guiGraphics.drawString(mc.font, itemsHeader, hudX + 5, yOffset, 0xAAFFAA);
+            lines.add(new RenderedLine(itemsHeader, 5, yOffset, 0xAAFFAA));
             yOffset += 12;
             
             for (Item item : req.getItems()) {
-                yOffset = renderItemLine(guiGraphics, mc, hudX + 15, yOffset, item);
+                RenderedLine line = buildItemLine(item, 15, yOffset);
+                lines.add(line);
+                yOffset += 12;
             }
         }
+        
+        int hudHeight = 60 + yOffset;
+        return new RenderCache(title, tabHint, lines, hudHeight, false, 320);
     }
-
-    private static int renderMobLine(GuiGraphics guiGraphics, Minecraft mc, int x, int y, 
-                                     EntityType<?> mob, Set<ResourceLocation> killedMobIds) {
-        ResourceLocation mobId = BuiltInRegistries.ENTITY_TYPE.getKey(mob);
+    
+    /**
+     * Build cached line for mob/boss
+     * Optimized with permanent Component cache and StringBuilder
+     */
+    private static RenderedLine buildMobLine(EntityType<?> mob, Set<ResourceLocation> killedMobIds, int x, int yOffset) {
+        ResourceLocation mobId = getCachedEntityId(mob);
         boolean mobKilled = mobId != null && killedMobIds.contains(mobId);
         
-        // Unicode checkboxes
         String checkbox = mobKilled ? "☑" : "☐";
         int color = mobKilled ? 0x55FF55 : 0xFF5555;
         
-        String mobName = mob.getDescription().getString();
+        Component mobNameComponent = getCachedMobName(mob);
+        String mobName = mobNameComponent.getString();
+        
+        // Build text with StringBuilder for performance
+        StringBuilder textBuilder = new StringBuilder(100);
+        textBuilder.append(checkbox).append(" §f").append(mobName);
         
         // Mod badge if not vanilla
-        String modBadge = "";
         if (mobId != null && !mobId.getNamespace().equals("minecraft")) {
-            modBadge = " §8[§b" + mobId.getNamespace().toUpperCase() + "§8]";
+            textBuilder.append(" §8[§b").append(mobId.getNamespace().toUpperCase()).append("§8]");
         }
         
-        Component text = Component.literal(checkbox + " §f" + mobName + modBadge);
-        guiGraphics.drawString(mc.font, text, x, y, color);
-        
-        return y + 12;
+        Component text = Component.literal(textBuilder.toString());
+        return new RenderedLine(text, x, yOffset, color);
     }
-
-    private static int renderItemLine(GuiGraphics guiGraphics, Minecraft mc, int x, int y, Item item) {
+    
+    /**
+     * Build cached line for item
+     * Optimized with permanent Component cache and StringBuilder
+     */
+    private static RenderedLine buildItemLine(Item item, int x, int yOffset) {
         boolean hasItem = ClientProgressCache.hasItemBeenObtained(item);
         
         String checkbox = hasItem ? "☑" : "☐";
         int color = hasItem ? 0x55FF55 : 0xFF5555;
         
-        String itemName = item.getDescription().getString();
-        Component text = Component.literal(checkbox + " §f" + itemName);
-        guiGraphics.drawString(mc.font, text, x, y, color);
+        Component itemNameComponent = getCachedItemName(item);
+        String itemName = itemNameComponent.getString();
         
-        return y + 12;
+        StringBuilder textBuilder = new StringBuilder(50);
+        textBuilder.append(checkbox).append(" §f").append(itemName);
+        
+        Component text = Component.literal(textBuilder.toString());
+        return new RenderedLine(text, x, yOffset, color);
     }
-
+    
+    /**
+     * Get cached ResourceLocation for EntityType (eliminates registry lookups)
+     */
+    private static ResourceLocation getCachedEntityId(EntityType<?> entity) {
+        return ENTITY_ID_CACHE.computeIfAbsent(entity, e -> BuiltInRegistries.ENTITY_TYPE.getKey(e));
+    }
+    
+    /**
+     * Get cached Component for mob (permanent cache - zero translation overhead)
+     */
+    private static Component getCachedMobName(EntityType<?> mob) {
+        return MOB_NAME_CACHE.computeIfAbsent(mob, m -> m.getDescription());
+    }
+    
+    /**
+     * Get cached Component for item (permanent cache - zero translation overhead)
+     */
+    private static Component getCachedItemName(Item item) {
+        return ITEM_NAME_CACHE.computeIfAbsent(item, i -> i.getDescription());
+    }
+    
     private static String getDimensionName(ResourceLocation dimension) {
         String path = dimension.getPath();
         if (path.contains("nether")) return "Nether Portal";
         if (path.contains("end")) return "End Portal";
         if (path.equals("overworld")) return "Overworld";
         return path;
-    }
-
-    private static int calculateRequirementHeight(ClientRequirementsCache.CachedRequirement req) {
-        int height = 60; // Title + phase hint + dim title + progress
-        
-        // Sections
-        if (!req.getMobs().isEmpty()) {
-            height += 12 + (req.getMobs().size() * 12) + 8; // Header + mobs + spacing
-        }
-        
-        if (!req.getBosses().isEmpty()) {
-            height += 12 + (req.getBosses().size() * 12) + 8; // Header + bosses + spacing
-        }
-        
-        if (!req.getItems().isEmpty()) {
-            height += 12 + (req.getItems().size() * 12); // Header + items
-        }
-        
-        return Math.min(height, 500);
     }
 }

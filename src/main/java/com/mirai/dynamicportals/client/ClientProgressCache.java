@@ -6,6 +6,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -29,6 +30,9 @@ public class ClientProgressCache {
         // Invalidate cached ResourceLocation set
         killedMobIdsCache = null;
         
+        // Invalidate ProgressHUD render cache
+        ProgressHUD.invalidateCache();
+        
         DynamicPortals.LOGGER.info("Progress cache updated: {} mobs tracked, {} items obtained, {} achievements unlocked",
             killedMobs.size(),
             obtainedItems.size(),
@@ -44,7 +48,7 @@ public class ClientProgressCache {
     }
 
     public static Set<Item> getObtainedItems() {
-        return new HashSet<>(obtainedItems);
+        return Collections.unmodifiableSet(obtainedItems);
     }
 
     public static boolean isAchievementUnlocked(ResourceLocation achievement) {
@@ -52,7 +56,7 @@ public class ClientProgressCache {
     }
 
     public static Map<EntityType<?>, Boolean> getKilledMobs() {
-        return new HashMap<>(killedMobs);
+        return Collections.unmodifiableMap(killedMobs);
     }
 
     public static Set<ResourceLocation> getKilledMobIds() {
@@ -71,7 +75,7 @@ public class ClientProgressCache {
     }
 
     public static Set<ResourceLocation> getUnlockedAchievements() {
-        return new HashSet<>(unlockedAchievements);
+        return Collections.unmodifiableSet(unlockedAchievements);
     }
 
     public static boolean isCacheValid() {

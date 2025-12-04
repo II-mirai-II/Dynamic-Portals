@@ -62,6 +62,10 @@ public class ClientRequirementsCache {
         }
         
         cacheValid = true;
+        
+        // Invalidate ProgressHUD render cache when requirements change
+        ProgressHUD.invalidateCache();
+        
         DynamicPortals.LOGGER.info("Requirements cache updated and validated");
     }
 
@@ -70,7 +74,7 @@ public class ClientRequirementsCache {
     }
 
     public static Map<ResourceLocation, CachedRequirement> getAllRequirements() {
-        return new HashMap<>(requirements);
+        return Collections.unmodifiableMap(requirements);
     }
 
     public static boolean isCacheValid() {
