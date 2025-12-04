@@ -2,7 +2,6 @@ package com.mirai.dynamicportals;
 
 import com.mirai.dynamicportals.advancement.ModTriggers;
 import com.mirai.dynamicportals.api.PortalRequirementRegistry;
-import com.mirai.dynamicportals.client.ModKeyBindings;
 import com.mirai.dynamicportals.compat.ModCompatibilityRegistry;
 import com.mirai.dynamicportals.data.ModAttachments;
 import com.mirai.dynamicportals.data.PlayerProgressData;
@@ -58,6 +57,9 @@ public class DynamicPortals {
         modEventBus.addListener(this::commonSetup);
         modEventBus.addListener(this::clientSetup);
         modEventBus.addListener(DataGenerators::gatherData);
+        
+        // Register client-only events
+        modEventBus.addListener(com.mirai.dynamicportals.client.ModKeyBindings::registerKeyMappings);
 
         // Register game event handlers
         NeoForge.EVENT_BUS.register(new PortalEventHandler());
@@ -176,8 +178,6 @@ public class DynamicPortals {
 
     private void clientSetup(final FMLClientSetupEvent event) {
         LOGGER.info("Client setup phase...");
-        event.enqueueWork(() -> {
-            ModKeyBindings.register();
-        });
+        // KeyBindings are now registered via @EventBusSubscriber in ModKeyBindings
     }
 }

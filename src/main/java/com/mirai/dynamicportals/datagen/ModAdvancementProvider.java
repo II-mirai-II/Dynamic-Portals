@@ -65,7 +65,7 @@ public class ModAdvancementProvider extends AdvancementProvider {
                                             EntityType.VINDICATOR,
                                             EntityType.EVOKER
                                     ),
-                                    List.of(EntityType.ELDER_GUARDIAN), // Boss
+                                    List.of(EntityType.ELDER_GUARDIAN), // Bosses
                                     List.of(Items.DIAMOND)
                             )
                     ))

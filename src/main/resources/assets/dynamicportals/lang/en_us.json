@@ -22,5 +22,6 @@
   "advancement.dynamicportals.end_access.description": "Defeat all required nether mobs, kill the Warden and Wither, and obtain netherite to unlock the End portal",
 
   "key.dynamicportals.toggle_hud": "Toggle Portal Progress HUD",
+  "key.dynamicportals.switch_phase": "Switch HUD Phase",
   "key.categories.dynamicportals": "Dynamic Portals"
 }

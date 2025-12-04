@@ -1,7 +1,6 @@
 package com.mirai.dynamicportals.client;
 
 import com.mirai.dynamicportals.util.ModConstants;
-import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -32,12 +31,24 @@ public class ProgressHUD {
                 // Reset to first phase when opening
                 currentPhaseIndex = 0;
             }
+            
+            // Play UI click sound when toggling HUD
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player != null) {
+                mc.player.playSound(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK.value(), 0.5F, 1.0F);
+            }
         }
         
-        // Tab to switch phases when HUD is visible
-        if (hudVisible && event.getKey() == InputConstants.KEY_TAB && event.getAction() == InputConstants.PRESS) {
+        // Switch phases when HUD is visible
+        if (hudVisible && ModKeyBindings.SWITCH_PHASE_KEY.consumeClick()) {
             if (orderedDimensions != null && !orderedDimensions.isEmpty()) {
                 currentPhaseIndex = (currentPhaseIndex + 1) % orderedDimensions.size();
+                
+                // Play page turn sound
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.player != null) {
+                    mc.player.playSound(net.minecraft.sounds.SoundEvents.BOOK_PAGE_TURN, 1.0F, 1.0F);
+                }
             }
         }
     }
@@ -112,8 +123,9 @@ public class ProgressHUD {
         guiGraphics.drawString(mc.font, title, hudX + (hudWidth - titleWidth) / 2, yOffset, 0xFFFFFF);
         yOffset += 15;
         
-        // Phase navigation hint
-        Component tabHint = Component.literal("§7[Tab] Next Phase §8(" + (currentPhaseIndex + 1) + "/" + orderedDimensions.size() + ")");
+        // Phase navigation hint - show the actual key binding
+        String switchKey = ModKeyBindings.SWITCH_PHASE_KEY.getTranslatedKeyMessage().getString();
+        Component tabHint = Component.literal("§7[" + switchKey + "] Next Phase §8(" + (currentPhaseIndex + 1) + "/" + orderedDimensions.size() + ")");
         guiGraphics.drawString(mc.font, tabHint, hudX + 5, yOffset, 0xAAAAAA);
         yOffset += 15;
         

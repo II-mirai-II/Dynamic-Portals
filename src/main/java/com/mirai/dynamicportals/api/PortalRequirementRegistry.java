@@ -79,8 +79,7 @@ public class PortalRequirementRegistry implements IPortalRequirementAPI {
         
         // Add vanilla overworld bosses
         netherBuilder
-                .addBoss(EntityType.ELDER_GUARDIAN)
-                .addBoss(EntityType.WARDEN);
+                .addBoss(EntityType.ELDER_GUARDIAN);
         
         // Add mobs and bosses from loaded compatibility configs
         netherBuilder.addMobsList(ModCompatibilityRegistry.getAllOverworldMobs());
@@ -104,7 +103,9 @@ public class PortalRequirementRegistry implements IPortalRequirementAPI {
                 .addMob(EntityType.HOGLIN);
         
         // Add vanilla nether bosses
-        endBuilder.addBoss(EntityType.WITHER);
+        endBuilder
+                .addBoss(EntityType.WARDEN)
+                .addBoss(EntityType.WITHER);
         
         // Add mobs and bosses from loaded compatibility configs
         endBuilder.addMobsList(ModCompatibilityRegistry.getAllNetherMobs());
