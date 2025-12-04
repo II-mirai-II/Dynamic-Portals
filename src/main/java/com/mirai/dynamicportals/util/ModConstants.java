@@ -5,8 +5,7 @@ import net.minecraft.resources.ResourceLocation;
 public class ModConstants {
     public static final String MOD_ID = "dynamicportals";
 
-    // Death penalty configuration
-    public static final int DEATH_THRESHOLD = 10;
+    // Configuration
     public static final int ASSIST_TIME_WINDOW_SECONDS = 5;
 
     // Dimension identifiers
@@ -20,12 +19,10 @@ public class ModConstants {
     // Translation keys - Messages
     public static final String MSG_PORTAL_BLOCKED_NETHER = "message.dynamicportals.portal_blocked.nether";
     public static final String MSG_PORTAL_BLOCKED_END = "message.dynamicportals.portal_blocked.end";
-    public static final String MSG_PROGRESS_RESET = "message.dynamicportals.progress_reset";
     public static final String MSG_ACHIEVEMENT_UNLOCKED = "message.dynamicportals.achievement_unlocked";
 
     // Translation keys - HUD
     public static final String HUD_TITLE = "hud.dynamicportals.title";
-    public static final String HUD_DEATHS = "hud.dynamicportals.deaths";
     public static final String HUD_PROGRESS_OVERWORLD = "hud.dynamicportals.progress.overworld";
     public static final String HUD_PROGRESS_NETHER = "hud.dynamicportals.progress.nether";
     public static final String HUD_PHASE_OVERWORLD = "hud.dynamicportals.phase.overworld";
@@ -49,7 +46,6 @@ public class ModConstants {
     // NBT keys
     public static final String NBT_KILLED_MOBS = "KilledMobs";
     public static final String NBT_OBTAINED_ITEMS = "ObtainedItems";
-    public static final String NBT_DEATH_COUNT = "DeathCount";
     public static final String NBT_UNLOCKED_ACHIEVEMENTS = "UnlockedAchievements";
     public static final String NBT_DATA_VERSION = "DataVersion";
 

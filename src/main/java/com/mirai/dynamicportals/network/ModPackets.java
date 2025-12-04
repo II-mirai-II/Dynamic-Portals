@@ -20,5 +20,11 @@ public class ModPackets {
                 SyncProgressPacket.STREAM_CODEC,
                 ClientPacketHandler::handleSyncProgress
         );
+
+        registrar.playToClient(
+                SyncRequirementsPacket.TYPE,
+                SyncRequirementsPacket.STREAM_CODEC,
+                ClientPacketHandler::handleSyncRequirements
+        );
     }
 }

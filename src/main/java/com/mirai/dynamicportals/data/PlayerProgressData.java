@@ -15,7 +15,6 @@ import java.util.*;
 public class PlayerProgressData implements INBTSerializable<CompoundTag> {
     private final Map<EntityType<?>, Boolean> killedMobs = new HashMap<>();
     private final Set<net.minecraft.world.item.Item> obtainedItems = new HashSet<>();
-    private int deathCount = 0;
     private final Set<ResourceLocation> unlockedAchievements = new HashSet<>();
     private int dataVersion = ModConstants.CURRENT_DATA_VERSION;
 
@@ -48,23 +47,6 @@ public class PlayerProgressData implements INBTSerializable<CompoundTag> {
         return Collections.unmodifiableSet(obtainedItems);
     }
 
-    // Death counter management
-    public void incrementDeathCount() {
-        deathCount++;
-    }
-
-    public int getDeathCount() {
-        return deathCount;
-    }
-
-    public void resetDeathCount() {
-        deathCount = 0;
-    }
-
-    public boolean shouldResetProgress() {
-        return deathCount >= ModConstants.DEATH_THRESHOLD;
-    }
-
     // Achievement tracking
     public void unlockAchievement(ResourceLocation achievement) {
         unlockedAchievements.add(achievement);
@@ -78,44 +60,12 @@ public class PlayerProgressData implements INBTSerializable<CompoundTag> {
         return Collections.unmodifiableSet(unlockedAchievements);
     }
 
-    // Progress reset (called when death threshold reached)
-    public void resetProgress() {
-        // Only reset progress for achievements that haven't been unlocked
-        if (!isAchievementUnlocked(ModConstants.NETHER_ACCESS_ADVANCEMENT)) {
-            killedMobs.clear();
-            obtainedItems.clear();
-        }
-        if (!isAchievementUnlocked(ModConstants.END_ACCESS_ADVANCEMENT)) {
-            // Keep nether access progress but clear nether mobs
-            killedMobs.entrySet().removeIf(entry -> isNetherMob(entry.getKey()));
-            // Clear nether items
-            obtainedItems.removeIf(item -> {
-                ResourceLocation itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item);
-                return itemId != null && itemId.toString().contains("netherite");
-            });
-        }
-        deathCount = 0;
-    }
-
-    // Helper to determine if mob is from nether progression
-    private boolean isNetherMob(EntityType<?> type) {
-        return type == EntityType.GHAST ||
-               type == EntityType.BLAZE ||
-               type == EntityType.WITHER_SKELETON ||
-               type == EntityType.PIGLIN ||
-               type == EntityType.PIGLIN_BRUTE ||
-               type == EntityType.HOGLIN ||
-               type == EntityType.WARDEN ||
-               type == EntityType.WITHER;
-    }
-
     // NBT Serialization
     @Override
     public CompoundTag serializeNBT(HolderLookup.Provider provider) {
         CompoundTag nbt = new CompoundTag();
         
         nbt.putInt(ModConstants.NBT_DATA_VERSION, dataVersion);
-        nbt.putInt(ModConstants.NBT_DEATH_COUNT, deathCount);
 
         // Save killed mobs
         CompoundTag mobsTag = new CompoundTag();
@@ -156,8 +106,6 @@ public class PlayerProgressData implements INBTSerializable<CompoundTag> {
         if (dataVersion < ModConstants.CURRENT_DATA_VERSION) {
             migrateData(nbt, dataVersion);
         }
-
-        deathCount = nbt.getInt(ModConstants.NBT_DEATH_COUNT);
 
         // Load killed mobs
         killedMobs.clear();
@@ -206,7 +154,6 @@ public class PlayerProgressData implements INBTSerializable<CompoundTag> {
         this.killedMobs.putAll(other.killedMobs);
         this.obtainedItems.clear();
         this.obtainedItems.addAll(other.obtainedItems);
-        this.deathCount = other.deathCount;
         this.unlockedAchievements.clear();
         this.unlockedAchievements.addAll(other.unlockedAchievements);
         this.dataVersion = other.dataVersion;

@@ -1,0 +1,17 @@
+{
+  "mod_id": "mowziesmobs",
+  "enabled": true,
+  "overworld_mobs": [],
+  "nether_mobs": [],
+  "end_mobs": [],
+  "bosses": [
+    "mowziesmobs:ferrous_wroughtnaut",
+    "mowziesmobs:foliaath",
+    "mowziesmobs:frostmaw",
+    "mowziesmobs:naga",
+    "mowziesmobs:umvuthana"
+  ],
+  "nether_bosses": [
+    "mowziesmobs:sculptor"
+  ]
+}

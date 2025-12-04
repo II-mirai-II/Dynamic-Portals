@@ -1,11 +1,15 @@
 package com.mirai.dynamicportals.event;
 
+import com.mirai.dynamicportals.api.PortalRequirement;
+import com.mirai.dynamicportals.api.PortalRequirementRegistry;
 import com.mirai.dynamicportals.data.ModAttachments;
 import com.mirai.dynamicportals.data.PlayerProgressData;
 import com.mirai.dynamicportals.network.SyncProgressPacket;
 import com.mirai.dynamicportals.util.ModConstants;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Items;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -15,27 +19,6 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public class PlayerEventHandler {
-
-    @SubscribeEvent
-    public void onPlayerDeath(LivingDeathEvent event) {
-        if (!(event.getEntity() instanceof ServerPlayer player)) {
-            return;
-        }
-
-        PlayerProgressData progressData = player.getData(ModAttachments.PLAYER_PROGRESS);
-
-        // Increment death counter
-        progressData.incrementDeathCount();
-
-        // Check if progress should be reset
-        if (progressData.shouldResetProgress()) {
-            progressData.resetProgress();
-            player.sendSystemMessage(Component.translatable(ModConstants.MSG_PROGRESS_RESET));
-        }
-
-        // Sync to client
-        PacketDistributor.sendToPlayer(player, SyncProgressPacket.fromProgressData(progressData));
-    }
 
     @SubscribeEvent
     public void onPlayerClone(PlayerEvent.Clone event) {
@@ -70,10 +53,71 @@ public class PlayerEventHandler {
             if (!progressData.hasItemBeenObtained(pickedItem)) {
                 progressData.markItemObtained(pickedItem);
                 
+                // Check if player completed any portal requirements
+                checkPortalCompletion(player, progressData);
+                
                 // Sync to client
                 PacketDistributor.sendToPlayer(player, SyncProgressPacket.fromProgressData(progressData));
             }
         }
+    }
+    
+    /**
+     * Check if player has completed all requirements for any portal and unlock it
+     */
+    private void checkPortalCompletion(ServerPlayer player, PlayerProgressData progressData) {
+        // Check Nether Portal
+        if (!progressData.isAchievementUnlocked(ModConstants.NETHER_ACCESS_ADVANCEMENT)) {
+            if (isPortalCompleted(player, progressData, ModConstants.NETHER_DIMENSION)) {
+                progressData.unlockAchievement(ModConstants.NETHER_ACCESS_ADVANCEMENT);
+                player.sendSystemMessage(Component.translatable(ModConstants.ADV_NETHER_TITLE)
+                        .append(Component.literal(" - "))
+                        .append(Component.translatable(ModConstants.ADV_NETHER_DESC)));
+            }
+        }
+        
+        // Check End Portal
+        if (!progressData.isAchievementUnlocked(ModConstants.END_ACCESS_ADVANCEMENT)) {
+            if (isPortalCompleted(player, progressData, ModConstants.END_DIMENSION)) {
+                progressData.unlockAchievement(ModConstants.END_ACCESS_ADVANCEMENT);
+                player.sendSystemMessage(Component.translatable(ModConstants.ADV_END_TITLE)
+                        .append(Component.literal(" - "))
+                        .append(Component.translatable(ModConstants.ADV_END_DESC)));
+            }
+        }
+    }
+    
+    /**
+     * Check if all requirements for a portal are completed
+     */
+    private boolean isPortalCompleted(ServerPlayer player, PlayerProgressData progressData, ResourceLocation dimension) {
+        PortalRequirement requirement = PortalRequirementRegistry.getInstance().getRequirement(dimension);
+        if (requirement == null) {
+            return false;
+        }
+        
+        // Check all mobs killed
+        for (EntityType<?> mob : requirement.getRequiredMobs()) {
+            if (!progressData.hasMobBeenKilled(mob)) {
+                return false;
+            }
+        }
+        
+        // Check all bosses killed
+        for (EntityType<?> boss : requirement.getRequiredBosses()) {
+            if (!progressData.hasMobBeenKilled(boss)) {
+                return false;
+            }
+        }
+        
+        // Check all items obtained
+        for (net.minecraft.world.item.Item item : requirement.getRequiredItems()) {
+            if (!progressData.hasItemBeenObtained(item)) {
+                return false;
+            }
+        }
+        
+        return true;
     }
 
     // Item pickup is tracked via advancement inventory criteria

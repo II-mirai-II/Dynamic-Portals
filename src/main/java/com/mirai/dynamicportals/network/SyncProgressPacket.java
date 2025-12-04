@@ -19,7 +19,6 @@ import java.util.Set;
 public record SyncProgressPacket(
         Map<EntityType<?>, Boolean> killedMobs,
         Set<Item> obtainedItems,
-        int deathCount,
         Set<ResourceLocation> unlockedAchievements
 ) implements CustomPacketPayload {
 
@@ -78,8 +77,6 @@ public record SyncProgressPacket(
                 }
             },
             SyncProgressPacket::obtainedItems,
-            ByteBufCodecs.VAR_INT,
-            SyncProgressPacket::deathCount,
             new StreamCodec<>() {
                 @Override
                 public Set<ResourceLocation> decode(ByteBuf buffer) {
@@ -107,7 +104,6 @@ public record SyncProgressPacket(
         return new SyncProgressPacket(
                 new HashMap<>(data.getKilledMobs()),
                 new HashSet<>(data.getObtainedItems()),
-                data.getDeathCount(),
                 new HashSet<>(data.getUnlockedAchievements())
         );
     }

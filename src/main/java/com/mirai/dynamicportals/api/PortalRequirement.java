@@ -1,6 +1,10 @@
 package com.mirai.dynamicportals.api;
 
+import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
 
@@ -73,6 +77,18 @@ public class PortalRequirement {
             return this;
         }
 
+        public Builder addMobsList(List<EntityType<?>> mobs) {
+            this.requiredMobs.addAll(mobs);
+            return this;
+        }
+
+        public Builder addMobsFromTag(TagKey<EntityType<?>> tag) {
+            BuiltInRegistries.ENTITY_TYPE.getTag(tag).ifPresent(holders -> {
+                holders.forEach(holder -> this.requiredMobs.add(holder.value()));
+            });
+            return this;
+        }
+
         public Builder addBoss(EntityType<?> boss) {
             this.requiredBosses.add(boss);
             return this;
@@ -80,6 +96,18 @@ public class PortalRequirement {
 
         public Builder addBosses(EntityType<?>... bosses) {
             Collections.addAll(this.requiredBosses, bosses);
+            return this;
+        }
+
+        public Builder addBossesList(List<EntityType<?>> bosses) {
+            this.requiredBosses.addAll(bosses);
+            return this;
+        }
+
+        public Builder addBossesFromTag(TagKey<EntityType<?>> tag) {
+            BuiltInRegistries.ENTITY_TYPE.getTag(tag).ifPresent(holders -> {
+                holders.forEach(holder -> this.requiredBosses.add(holder.value()));
+            });
             return this;
         }
 
