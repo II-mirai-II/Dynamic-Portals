@@ -16,10 +16,10 @@
   "hud.dynamicportals.completed": "✓ COMPLETED",
   "hud.dynamicportals.incomplete": "✗ Incomplete",
 
-  "advancement.dynamicportals.nether_access.title": "Gateway to the Nether",
-  "advancement.dynamicportals.nether_access.description": "Defeat all required overworld mobs, kill the Elder Guardian, and obtain a diamond to unlock the Nether portal",
-  "advancement.dynamicportals.end_access.title": "Path to the End",
-  "advancement.dynamicportals.end_access.description": "Defeat all required nether mobs, kill the Warden and Wither, and obtain netherite to unlock the End portal",
+  "advancement.dynamicportals.nether_access.title": "Congratulations!",
+  "advancement.dynamicportals.nether_access.description": "You have completed all requirements. The Nether portal is now unlocked!",
+  "advancement.dynamicportals.end_access.title": "Congratulations!",
+  "advancement.dynamicportals.end_access.description": "You have completed all requirements. The End portal is now unlocked!",
 
   "key.dynamicportals.toggle_hud": "Toggle Portal Progress HUD",
   "key.dynamicportals.switch_phase": "Switch HUD Phase",
