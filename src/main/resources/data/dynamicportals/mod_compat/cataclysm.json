@@ -1,0 +1,32 @@
+{
+  "mod_id": "cataclysm",
+  "enabled": true,
+  "overworld_mobs": [
+    "cataclysm:coralssus",
+    "cataclysm:coral_golem",
+    "cataclysm:koboleton",
+    "cataclysm:modern_remnant",
+    "cataclysm:the_prowler",
+    "cataclysm:deepling_priest"
+  ],
+  "nether_mobs": [
+    "cataclysm:ignited_berserker"
+  ],
+  "end_mobs": [],
+  "bosses": [
+    "cataclysm:the_leviathan",
+    "cataclysm:ancient_remnant",
+    "cataclysm:wadjet",
+    "cataclysm:kobolediator",
+    "cataclysm:the_harbinger",
+    "cataclysm:aptrgangr",
+    "cataclysm:maledictus",
+    "cataclysm:scylla",
+    "cataclysm:amethyst_crab"
+  ],
+  "nether_bosses": [
+    "cataclysm:ignis",
+    "cataclysm:ignited_revenant",
+    "cataclysm:netherite_monstrosity"
+  ]
+}

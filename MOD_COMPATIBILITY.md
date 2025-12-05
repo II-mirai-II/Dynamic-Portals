@@ -11,6 +11,7 @@ The mod automatically detects installed mods and loads their compatibility confi
 Currently, Dynamic Portals includes built-in compatibility for:
 
 - **Mowzie's Mobs** - Adds unique boss mobs and creatures
+- **L_Ender's Cataclysm** - Adds powerful bosses and challenging creatures across all dimensions
 
 ## File Structure
 

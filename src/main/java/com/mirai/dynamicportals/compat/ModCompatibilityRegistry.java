@@ -50,6 +50,7 @@ public class ModCompatibilityRegistry {
         // List of known mod compatibility files
         String[] knownMods = {
             "mowziesmobs",
+            "cataclysm",
             "alexsmobs",
             "twilightforest",
             "iceandfire",
