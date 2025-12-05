@@ -42,6 +42,8 @@ public class ModConstants {
     // Translation keys - Keybindings
     public static final String KEY_TOGGLE_HUD = "key.dynamicportals.toggle_hud";
     public static final String KEY_SWITCH_PHASE = "key.dynamicportals.switch_phase";
+    public static final String KEY_NEXT_PAGE = "key.dynamicportals.next_page";
+    public static final String KEY_PREV_PAGE = "key.dynamicportals.prev_page";
     public static final String KEY_CATEGORY = "key.categories.dynamicportals";
 
     // NBT keys

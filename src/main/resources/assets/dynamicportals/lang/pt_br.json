@@ -21,7 +21,9 @@
   "advancement.dynamicportals.end_access.title": "Parabéns!",
   "advancement.dynamicportals.end_access.description": "Você completou todos os requisitos. O portal do End está liberado!",
 
-  "key.dynamicportals.toggle_hud": "Alternar HUD de Progresso de Portais",
-  "key.dynamicportals.switch_phase": "Trocar Fase do HUD",
+  "key.dynamicportals.toggle_hud": "Alternar HUD de Progresso do Portal",
+  "key.dynamicportals.switch_phase": "Mudar Fase do HUD",
+  "key.dynamicportals.next_page": "Próxima Página",
+  "key.dynamicportals.prev_page": "Página Anterior",
   "key.categories.dynamicportals": "Dynamic Portals"
 }

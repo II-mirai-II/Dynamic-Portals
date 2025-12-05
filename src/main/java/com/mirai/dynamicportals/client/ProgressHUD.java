@@ -24,7 +24,12 @@ public class ProgressHUD {
     
     private static boolean hudVisible = false;
     private static int currentPhaseIndex = 0;
+    private static int currentPage = 0;
+    private static int totalPages = 1;
     private static List<ResourceLocation> orderedDimensions = null;
+    
+    // Pagination constants
+    private static final int MAX_LINES_PER_PAGE = 20;
     
     // Performance caches
     private static final Map<EntityType<?>, ResourceLocation> ENTITY_ID_CACHE = new HashMap<>();
@@ -43,15 +48,13 @@ public class ProgressHUD {
         final Component tabHint;
         final List<RenderedLine> lines;
         final int hudHeight;
-        final boolean isCompleted;
         final int hudWidth;
         
-        RenderCache(Component title, Component tabHint, List<RenderedLine> lines, int hudHeight, boolean isCompleted, int hudWidth) {
+        RenderCache(Component title, Component tabHint, List<RenderedLine> lines, int hudHeight, int hudWidth) {
             this.title = title;
             this.tabHint = tabHint;
             this.lines = lines;
             this.hudHeight = hudHeight;
-            this.isCompleted = isCompleted;
             this.hudWidth = hudWidth;
         }
     }
@@ -91,9 +94,36 @@ public class ProgressHUD {
         if (hudVisible && ModKeyBindings.SWITCH_PHASE_KEY.consumeClick()) {
             if (orderedDimensions != null && !orderedDimensions.isEmpty()) {
                 currentPhaseIndex = (currentPhaseIndex + 1) % orderedDimensions.size();
+                currentPage = 0; // Reset to first page when switching phase
                 cacheDirty = true; // Force cache rebuild on phase switch
                 
                 // Play page turn sound
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.player != null) {
+                    mc.player.playSound(net.minecraft.sounds.SoundEvents.BOOK_PAGE_TURN, 1.0F, 1.0F);
+                }
+            }
+        }
+        
+        // Navigate to next page
+        if (hudVisible && ModKeyBindings.NEXT_PAGE_KEY.consumeClick()) {
+            if (currentPage < totalPages - 1) {
+                currentPage++;
+                cacheDirty = true;
+                
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.player != null) {
+                    mc.player.playSound(net.minecraft.sounds.SoundEvents.BOOK_PAGE_TURN, 1.0F, 1.0F);
+                }
+            }
+        }
+        
+        // Navigate to previous page
+        if (hudVisible && ModKeyBindings.PREV_PAGE_KEY.consumeClick()) {
+            if (currentPage > 0) {
+                currentPage--;
+                cacheDirty = true;
+                
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.player != null) {
                     mc.player.playSound(net.minecraft.sounds.SoundEvents.BOOK_PAGE_TURN, 1.0F, 1.0F);
@@ -196,6 +226,8 @@ public class ProgressHUD {
         currentRenderCache = null;
         lastDimension = null;
         orderedDimensions = null;
+        currentPage = 0; // Reset to first page
+        totalPages = 1;
         // Keep name/id caches as they're static and permanent
     }
     
@@ -214,8 +246,11 @@ public class ProgressHUD {
         
         // Phase navigation hint (optimized with StringBuilder)
         String switchKey = ModKeyBindings.SWITCH_PHASE_KEY.getTranslatedKeyMessage().getString();
-        StringBuilder tabHintBuilder = new StringBuilder(50);
-        tabHintBuilder.append("§7[").append(switchKey).append("] Next Phase §8(").append(currentPhaseIndex + 1).append("/").append(orderedDimensions.size()).append(")");
+        String prevKey = ModKeyBindings.PREV_PAGE_KEY.getTranslatedKeyMessage().getString();
+        String nextKey = ModKeyBindings.NEXT_PAGE_KEY.getTranslatedKeyMessage().getString();
+        StringBuilder tabHintBuilder = new StringBuilder(80);
+        tabHintBuilder.append("§7[").append(switchKey).append("] Phase §8(").append(currentPhaseIndex + 1).append("/").append(orderedDimensions.size()).append(") ");
+        tabHintBuilder.append("§7[").append(prevKey).append("/").append(nextKey).append("] Page §8(").append(currentPage + 1).append("/").append(totalPages).append(")");
         Component tabHint = Component.literal(tabHintBuilder.toString());
         
         List<RenderedLine> lines = new ArrayList<>();
@@ -266,61 +301,84 @@ public class ProgressHUD {
         progressBuilder.append("§7Progress: §f").append(totalCompleted).append("/").append(totalRequirements);
         Component progressText = Component.literal(progressBuilder.toString());
         lines.add(new RenderedLine(progressText, 5, yOffset, 0xFFFFFF));
-        yOffset += 15;
+        yOffset += 1;
         
         // If completed, show completion message
         if (isCompleted) {
             Component completedMsg = Component.literal("§a§l✔ COMPLETED!");
             lines.add(new RenderedLine(completedMsg, 5, yOffset, 0x55FF55));
             int hudHeight = 60 + yOffset;
-            return new RenderCache(title, tabHint, lines, hudHeight, true, 320);
+            return new RenderCache(title, tabHint, lines, hudHeight, 320);
         }
         
-        yOffset += 5; // Spacing
+        yOffset += 20; // Spacing increased for better separation
+        
+        // Collect all content lines (before pagination)
+        List<RenderedLine> allContentLines = new ArrayList<>();
+        int contentYOffset = 0;
         
         // SECTION 1: Regular Mobs
         if (!req.getMobs().isEmpty()) {
             Component mobsHeader = Component.literal("§b§lRequired Mobs");
-            lines.add(new RenderedLine(mobsHeader, 5, yOffset, 0xAAAAFF));
-            yOffset += 12;
+            allContentLines.add(new RenderedLine(mobsHeader, 5, contentYOffset, 0xAAAAFF));
+            contentYOffset += 12;
             
             for (EntityType<?> mob : req.getMobs()) {
-                RenderedLine line = buildMobLine(mob, killedMobIds, 15, yOffset);
-                lines.add(line);
-                yOffset += 12;
+                RenderedLine line = buildMobLine(mob, killedMobIds, 15, contentYOffset);
+                allContentLines.add(line);
+                contentYOffset += 12;
             }
-            yOffset += 8;
+            contentYOffset += 8;
         }
         
         // SECTION 2: Bosses
         if (!req.getBosses().isEmpty()) {
             Component bossHeader = Component.literal("§c§lRequired Bosses");
-            lines.add(new RenderedLine(bossHeader, 5, yOffset, 0xFFAAAA));
-            yOffset += 12;
+            allContentLines.add(new RenderedLine(bossHeader, 5, contentYOffset, 0xFFAAAA));
+            contentYOffset += 12;
             
             for (EntityType<?> boss : req.getBosses()) {
-                RenderedLine line = buildMobLine(boss, killedMobIds, 15, yOffset);
-                lines.add(line);
-                yOffset += 12;
+                RenderedLine line = buildMobLine(boss, killedMobIds, 15, contentYOffset);
+                allContentLines.add(line);
+                contentYOffset += 12;
             }
-            yOffset += 8;
+            contentYOffset += 8;
         }
         
         // SECTION 3: Items
         if (!req.getItems().isEmpty()) {
             Component itemsHeader = Component.literal("§a§lRequired Items");
-            lines.add(new RenderedLine(itemsHeader, 5, yOffset, 0xAAFFAA));
-            yOffset += 12;
+            allContentLines.add(new RenderedLine(itemsHeader, 5, contentYOffset, 0xAAFFAA));
+            contentYOffset += 12;
             
             for (Item item : req.getItems()) {
-                RenderedLine line = buildItemLine(item, 15, yOffset);
-                lines.add(line);
-                yOffset += 12;
+                RenderedLine line = buildItemLine(item, 15, contentYOffset);
+                allContentLines.add(line);
+                contentYOffset += 12;
             }
         }
         
+        // Calculate total pages
+        totalPages = Math.max(1, (int) Math.ceil((double) allContentLines.size() / MAX_LINES_PER_PAGE));
+        
+        // Ensure current page is valid
+        if (currentPage >= totalPages) {
+            currentPage = totalPages - 1;
+        }
+        
+        // Get lines for current page
+        int startIdx = currentPage * MAX_LINES_PER_PAGE;
+        int endIdx = Math.min(startIdx + MAX_LINES_PER_PAGE, allContentLines.size());
+        
+        // Add only the lines for current page, using accumulated yOffset
+        for (int i = startIdx; i < endIdx; i++) {
+            RenderedLine originalLine = allContentLines.get(i);
+            lines.add(new RenderedLine(originalLine.component, originalLine.x, yOffset, originalLine.color));
+            yOffset += 12;
+        }
+        
         int hudHeight = 60 + yOffset;
-        return new RenderCache(title, tabHint, lines, hudHeight, false, 320);
+        return new RenderCache(title, tabHint, lines, hudHeight, 320);
     }
     
     /**

@@ -23,5 +23,7 @@
 
   "key.dynamicportals.toggle_hud": "Toggle Portal Progress HUD",
   "key.dynamicportals.switch_phase": "Switch HUD Phase",
+  "key.dynamicportals.next_page": "Next Page",
+  "key.dynamicportals.prev_page": "Previous Page",
   "key.categories.dynamicportals": "Dynamic Portals"
 }
