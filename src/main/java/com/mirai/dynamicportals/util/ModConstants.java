@@ -5,9 +5,6 @@ import net.minecraft.resources.ResourceLocation;
 public class ModConstants {
     public static final String MOD_ID = "dynamicportals";
 
-    // Configuration
-    public static final int ASSIST_TIME_WINDOW_SECONDS = 5;
-
     // Dimension identifiers
     public static final ResourceLocation NETHER_DIMENSION = ResourceLocation.withDefaultNamespace("the_nether");
     public static final ResourceLocation END_DIMENSION = ResourceLocation.withDefaultNamespace("the_end");

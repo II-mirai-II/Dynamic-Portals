@@ -1,5 +1,6 @@
 package com.mirai.dynamicportals.client;
 
+import com.mirai.dynamicportals.config.ModConfig;
 import com.mirai.dynamicportals.util.ModConstants;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
@@ -28,8 +29,8 @@ public class ProgressHUD {
     private static int totalPages = 1;
     private static List<ResourceLocation> orderedDimensions = null;
     
-    // Pagination constants
-    private static final int MAX_LINES_PER_PAGE = 20;
+    // Persist pagination state per dimension
+    private static final Map<ResourceLocation, Integer> phasePageMemory = new HashMap<>();
     
     // Performance caches
     private static final Map<EntityType<?>, ResourceLocation> ENTITY_ID_CACHE = new HashMap<>();
@@ -93,8 +94,17 @@ public class ProgressHUD {
         // Switch phases when HUD is visible
         if (hudVisible && ModKeyBindings.SWITCH_PHASE_KEY.consumeClick()) {
             if (orderedDimensions != null && !orderedDimensions.isEmpty()) {
+                // Save current page for current dimension
+                if (lastDimension != null) {
+                    phasePageMemory.put(lastDimension, currentPage);
+                }
+                
                 currentPhaseIndex = (currentPhaseIndex + 1) % orderedDimensions.size();
-                currentPage = 0; // Reset to first page when switching phase
+                
+                // Restore saved page for new dimension (or start at 0)
+                ResourceLocation newDimension = orderedDimensions.get(currentPhaseIndex);
+                currentPage = phasePageMemory.getOrDefault(newDimension, 0);
+                
                 cacheDirty = true; // Force cache rebuild on phase switch
                 
                 // Play page turn sound
@@ -189,9 +199,11 @@ public class ProgressHUD {
         int hudX = screenWidth - currentRenderCache.hudWidth - 10;
         int hudY = 10;
         
-        // Background (optimized - single color fill)
-        guiGraphics.fill(hudX - 5, hudY - 5, hudX + currentRenderCache.hudWidth + 5, hudY + currentRenderCache.hudHeight + 5, 0xDD000000);
-        guiGraphics.fill(hudX - 5, hudY - 5, hudX + currentRenderCache.hudWidth + 5, hudY - 3, 0xFF4A90E2);
+        // Background (configurable colors)
+        int backgroundColor = ModConfig.COMMON.getHudBackgroundColor();
+        int headerColor = ModConfig.COMMON.getHudHeaderColor();
+        guiGraphics.fill(hudX - 5, hudY - 5, hudX + currentRenderCache.hudWidth + 5, hudY + currentRenderCache.hudHeight + 5, backgroundColor);
+        guiGraphics.fill(hudX - 5, hudY - 5, hudX + currentRenderCache.hudWidth + 5, hudY - 3, headerColor);
         
         // BATCH TEXT RENDERING - All text in single batch for maximum performance
         PoseStack poseStack = guiGraphics.pose();
@@ -228,6 +240,7 @@ public class ProgressHUD {
         orderedDimensions = null;
         currentPage = 0; // Reset to first page
         totalPages = 1;
+        phasePageMemory.clear(); // Clear pagination memory
         // Keep name/id caches as they're static and permanent
     }
     
@@ -358,8 +371,9 @@ public class ProgressHUD {
             }
         }
         
-        // Calculate total pages
-        totalPages = Math.max(1, (int) Math.ceil((double) allContentLines.size() / MAX_LINES_PER_PAGE));
+        // Calculate total pages using config
+        int maxLinesPerPage = ModConfig.COMMON.maxLinesPerPage.get();
+        totalPages = Math.max(1, (int) Math.ceil((double) allContentLines.size() / maxLinesPerPage));
         
         // Ensure current page is valid
         if (currentPage >= totalPages) {
@@ -367,8 +381,8 @@ public class ProgressHUD {
         }
         
         // Get lines for current page
-        int startIdx = currentPage * MAX_LINES_PER_PAGE;
-        int endIdx = Math.min(startIdx + MAX_LINES_PER_PAGE, allContentLines.size());
+        int startIdx = currentPage * maxLinesPerPage;
+        int endIdx = Math.min(startIdx + maxLinesPerPage, allContentLines.size());
         
         // Add only the lines for current page, using accumulated yOffset
         for (int i = startIdx; i < endIdx; i++) {

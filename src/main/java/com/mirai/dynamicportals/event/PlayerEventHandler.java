@@ -1,7 +1,9 @@
 package com.mirai.dynamicportals.event;
 
+import com.mirai.dynamicportals.DynamicPortals;
 import com.mirai.dynamicportals.api.PortalRequirement;
 import com.mirai.dynamicportals.api.PortalRequirementRegistry;
+import com.mirai.dynamicportals.config.ModConfig;
 import com.mirai.dynamicportals.data.ModAttachments;
 import com.mirai.dynamicportals.data.PlayerProgressData;
 import com.mirai.dynamicportals.network.SyncProgressPacket;
@@ -48,13 +50,24 @@ public class PlayerEventHandler {
         PlayerProgressData progressData = player.getData(ModAttachments.PLAYER_PROGRESS);
         net.minecraft.world.item.Item pickedItem = event.getItemEntity().getItem().getItem();
 
-        // Track diamond and netherite ingot
-        if (pickedItem == Items.DIAMOND || pickedItem == Items.NETHERITE_INGOT) {
+        // Get all tracked items from registry
+        java.util.Set<net.minecraft.world.item.Item> trackedItems = PortalRequirementRegistry.getInstance().getAllTrackedItems();
+
+        // Track items dynamically
+        if (trackedItems.contains(pickedItem)) {
             if (!progressData.hasItemBeenObtained(pickedItem)) {
                 progressData.markItemObtained(pickedItem);
                 
+                if (ModConfig.COMMON.debugLogging.get()) {
+                    DynamicPortals.LOGGER.debug("Player {} obtained tracked item: {}", 
+                            player.getName().getString(), 
+                            net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(pickedItem));
+                }
+                
                 // Check if player completed any portal requirements
-                checkPortalCompletion(player, progressData);
+                if (ModConfig.COMMON.autoGrantAdvancements.get()) {
+                    checkPortalCompletion(player, progressData);
+                }
                 
                 // Sync to client
                 PacketDistributor.sendToPlayer(player, SyncProgressPacket.fromProgressData(progressData));

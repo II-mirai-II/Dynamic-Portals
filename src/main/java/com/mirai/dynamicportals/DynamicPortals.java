@@ -3,6 +3,9 @@ package com.mirai.dynamicportals;
 import com.mirai.dynamicportals.advancement.ModTriggers;
 import com.mirai.dynamicportals.api.PortalRequirementRegistry;
 import com.mirai.dynamicportals.compat.ModCompatibilityRegistry;
+import com.mirai.dynamicportals.config.CustomPortalRequirementsLoader;
+import com.mirai.dynamicportals.config.ModConfig;
+import com.mirai.dynamicportals.config.PortalRequirementsLoader;
 import com.mirai.dynamicportals.data.ModAttachments;
 import com.mirai.dynamicportals.data.PlayerProgressData;
 import com.mirai.dynamicportals.datagen.DataGenerators;
@@ -28,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig.Type;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
@@ -44,9 +48,11 @@ public class DynamicPortals {
     
     // Cache the requirements packet after server starts
     private static SyncRequirementsPacket cachedRequirementsPacket = null;
-
     public DynamicPortals(IEventBus modEventBus, ModContainer modContainer) {
         LOGGER.info("Initializing Dynamic Portals mod...");
+
+        // Register configuration
+        modContainer.registerConfig(Type.COMMON, ModConfig.COMMON_SPEC);
 
         // Register mod components
         ModAttachments.register(modEventBus);
@@ -85,8 +91,6 @@ public class DynamicPortals {
         
         // Load mod compatibility configurations (entities are now registered)
         ModCompatibilityRegistry.loadCompatibilityConfigs();
-        
-        LOGGER.info("Mod compatibility loaded! Waiting for server to fully start...");
     }
     
     private void onServerStarted(final ServerStartedEvent event) {
@@ -94,7 +98,12 @@ public class DynamicPortals {
         
         // Now that server is fully started and tags are loaded, register requirements
         PortalRequirementRegistry.getInstance().clearRequirements();
-        PortalRequirementRegistry.getInstance().registerVanillaRequirements();
+        
+        // Load portal requirements from JSON configuration (internal defaults)
+        PortalRequirementsLoader.loadAndRegister();
+        
+        // Load custom portal requirements from config folder (user customization)
+        CustomPortalRequirementsLoader.loadCustomRequirements();
         
         // Prepare requirements packet for clients
         cachedRequirementsPacket = createRequirementsPacket();
@@ -174,6 +183,14 @@ public class DynamicPortals {
         }
         
         return new SyncRequirementsPacket(packetData);
+    }
+    
+    /**
+     * Invalidate the cached requirements packet (used by reload command)
+     */
+    public static void invalidateRequirementsCache() {
+        cachedRequirementsPacket = null;
+        LOGGER.debug("Requirements cache invalidated");
     }
 
     private void clientSetup(final FMLClientSetupEvent event) {

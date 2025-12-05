@@ -101,11 +101,6 @@ public class PlayerProgressData implements INBTSerializable<CompoundTag> {
     public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
         // Load data version for potential migrations
         dataVersion = nbt.getInt(ModConstants.NBT_DATA_VERSION);
-        
-        // Migrate data if needed
-        if (dataVersion < ModConstants.CURRENT_DATA_VERSION) {
-            migrateData(nbt, dataVersion);
-        }
 
         // Load killed mobs
         killedMobs.clear();
@@ -138,14 +133,6 @@ public class PlayerProgressData implements INBTSerializable<CompoundTag> {
             for (Tag tag : achievementsTag) {
                 unlockedAchievements.add(ResourceLocation.parse(tag.getAsString()));
             }
-        }
-    }
-
-    private void migrateData(CompoundTag nbt, int oldVersion) {
-        // Future data migrations can be handled here
-        // For now, version 1 is the initial version
-        if (oldVersion < 1) {
-            // Migration logic for pre-v1 data
         }
     }
 

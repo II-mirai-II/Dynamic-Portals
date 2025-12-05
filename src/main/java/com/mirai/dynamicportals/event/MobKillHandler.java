@@ -3,6 +3,7 @@ package com.mirai.dynamicportals.event;
 import com.mirai.dynamicportals.advancement.ModTriggers;
 import com.mirai.dynamicportals.api.PortalRequirement;
 import com.mirai.dynamicportals.api.PortalRequirementRegistry;
+import com.mirai.dynamicportals.config.ModConfig;
 import com.mirai.dynamicportals.data.ModAttachments;
 import com.mirai.dynamicportals.data.PlayerProgressData;
 import com.mirai.dynamicportals.network.SyncProgressPacket;
@@ -26,7 +27,13 @@ public class MobKillHandler {
     
     // Track damage sources for assist system (last 5 seconds)
     private static final Map<LivingEntity, AssistTracker> DAMAGE_TRACKERS = new ConcurrentHashMap<>();
-    private static final long ASSIST_WINDOW_MS = ModConstants.ASSIST_TIME_WINDOW_SECONDS * 1000L;
+    
+    /**
+     * Get assist window in milliseconds (fixed at 5 seconds)
+     */
+    private static long getAssistWindowMs() {
+        return 5000L;
+    }
 
     @SubscribeEvent
     public void onLivingDamage(LivingDamageEvent.Pre event) {
@@ -165,10 +172,11 @@ public class MobKillHandler {
 
         public List<Player> getRecentDamagers() {
             long currentTime = System.currentTimeMillis();
+            long assistWindow = getAssistWindowMs();
             List<Player> recent = new ArrayList<>();
             
             for (Map.Entry<Player, Long> entry : damagers.entrySet()) {
-                if (currentTime - entry.getValue() <= ASSIST_WINDOW_MS) {
+                if (currentTime - entry.getValue() <= assistWindow) {
                     recent.add(entry.getKey());
                 }
             }
@@ -177,8 +185,9 @@ public class MobKillHandler {
         }
 
         public boolean isExpired(long currentTime) {
+            long assistWindow = getAssistWindowMs();
             return damagers.values().stream()
-                    .allMatch(time -> currentTime - time > ASSIST_WINDOW_MS);
+                    .allMatch(time -> currentTime - time > assistWindow);
         }
     }
 }

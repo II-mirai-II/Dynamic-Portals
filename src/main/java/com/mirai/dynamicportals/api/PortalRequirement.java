@@ -18,6 +18,13 @@ public class PortalRequirement {
     private final List<EntityType<?>> requiredMobs;
     private final List<EntityType<?>> requiredBosses;
     private final List<Item> requiredItems;
+    
+    // Display information
+    private final String displayName;
+    private final String displayDescription;
+    private final Integer displayColor;
+    private final ResourceLocation displayIcon;
+    private final int sortOrder;
 
     private PortalRequirement(Builder builder) {
         this.dimension = builder.dimension;
@@ -25,6 +32,11 @@ public class PortalRequirement {
         this.requiredMobs = Collections.unmodifiableList(builder.requiredMobs);
         this.requiredBosses = Collections.unmodifiableList(builder.requiredBosses);
         this.requiredItems = Collections.unmodifiableList(builder.requiredItems);
+        this.displayName = builder.displayName;
+        this.displayDescription = builder.displayDescription;
+        this.displayColor = builder.displayColor;
+        this.displayIcon = builder.displayIcon;
+        this.sortOrder = builder.sortOrder;
     }
 
     public ResourceLocation getDimension() {
@@ -46,6 +58,26 @@ public class PortalRequirement {
     public List<Item> getRequiredItems() {
         return requiredItems;
     }
+    
+    public String getDisplayName() {
+        return displayName;
+    }
+    
+    public String getDisplayDescription() {
+        return displayDescription;
+    }
+    
+    public Integer getDisplayColor() {
+        return displayColor;
+    }
+    
+    public ResourceLocation getDisplayIcon() {
+        return displayIcon;
+    }
+    
+    public int getSortOrder() {
+        return sortOrder;
+    }
 
     public static Builder builder(ResourceLocation dimension) {
         return new Builder(dimension);
@@ -57,6 +89,13 @@ public class PortalRequirement {
         private final List<EntityType<?>> requiredMobs = new ArrayList<>();
         private final List<EntityType<?>> requiredBosses = new ArrayList<>();
         private final List<Item> requiredItems = new ArrayList<>();
+        
+        // Display information
+        private String displayName;
+        private String displayDescription;
+        private Integer displayColor;
+        private ResourceLocation displayIcon;
+        private int sortOrder = 0;
 
         private Builder(ResourceLocation dimension) {
             this.dimension = dimension;
@@ -120,8 +159,40 @@ public class PortalRequirement {
             Collections.addAll(this.requiredItems, items);
             return this;
         }
+        
+        public Builder displayName(String name) {
+            this.displayName = name;
+            return this;
+        }
+        
+        public Builder displayDescription(String description) {
+            this.displayDescription = description;
+            return this;
+        }
+        
+        public Builder displayColor(Integer color) {
+            this.displayColor = color;
+            return this;
+        }
+        
+        public Builder displayIcon(ResourceLocation icon) {
+            this.displayIcon = icon;
+            return this;
+        }
+        
+        public Builder sortOrder(int order) {
+            this.sortOrder = order;
+            return this;
+        }
 
         public PortalRequirement build() {
+            // Validate that at least one requirement is specified
+            if (requiredMobs.isEmpty() && requiredBosses.isEmpty() && 
+                requiredItems.isEmpty() && requiredAdvancement == null) {
+                throw new IllegalStateException(
+                    "Portal requirement for dimension '" + dimension + "' must have at least one requirement. "
+                    + "Add mobs, bosses, items, or an advancement before calling build().");
+            }
             return new PortalRequirement(this);
         }
     }

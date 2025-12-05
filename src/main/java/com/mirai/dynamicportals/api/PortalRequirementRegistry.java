@@ -5,10 +5,13 @@ import com.mirai.dynamicportals.compat.ModCompatibilityRegistry;
 import com.mirai.dynamicportals.util.ModConstants;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 public class PortalRequirementRegistry implements IPortalRequirementAPI {
     
@@ -24,6 +27,12 @@ public class PortalRequirementRegistry implements IPortalRequirementAPI {
 
     @Override
     public void registerPortalRequirement(PortalRequirement requirement) {
+        if (requirement == null) {
+            throw new IllegalArgumentException("Cannot register null portal requirement");
+        }
+        if (requirement.getDimension() == null) {
+            throw new IllegalArgumentException("Portal requirement must have a dimension (ResourceLocation)");
+        }
         requirements.put(requirement.getDimension(), requirement);
     }
 
@@ -144,5 +153,58 @@ public class PortalRequirementRegistry implements IPortalRequirementAPI {
      */
     public static Map<ResourceLocation, PortalRequirement> getAll() {
         return getInstance().getAllRequirements();
+    }
+    
+    /**
+     * Get all tracked items from all registered requirements
+     * @return Set of all items that should be tracked
+     */
+    public Set<Item> getAllTrackedItems() {
+        return requirements.values().stream()
+                .flatMap(req -> req.getRequiredItems().stream())
+                .collect(java.util.stream.Collectors.toSet());
+    }
+    
+    /**
+     * Get all tracked mobs (including bosses) from all registered requirements
+     * @return Set of all entity types that should be tracked
+     */
+    public Set<EntityType<?>> getAllTrackedMobs() {
+        return requirements.values().stream()
+                .flatMap(req -> java.util.stream.Stream.concat(
+                        req.getRequiredMobs().stream(),
+                        req.getRequiredBosses().stream()
+                ))
+                .collect(java.util.stream.Collectors.toSet());
+    }
+    
+    /**
+     * Get the dimension that requires a specific mob type
+     * @param mobType The entity type to search for
+     * @return The dimension ResourceLocation, or null if not found
+     */
+    public ResourceLocation getDimensionForMob(EntityType<?> mobType) {
+        for (Map.Entry<ResourceLocation, PortalRequirement> entry : requirements.entrySet()) {
+            PortalRequirement req = entry.getValue();
+            if (req.getRequiredMobs().contains(mobType) || req.getRequiredBosses().contains(mobType)) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Get the dimension that requires a specific item
+     * @param item The item to search for
+     * @return The dimension ResourceLocation, or null if not found
+     */
+    public ResourceLocation getDimensionForItem(Item item) {
+        for (Map.Entry<ResourceLocation, PortalRequirement> entry : requirements.entrySet()) {
+            PortalRequirement req = entry.getValue();
+            if (req.getRequiredItems().contains(item)) {
+                return entry.getKey();
+            }
+        }
+        return null;
     }
 }

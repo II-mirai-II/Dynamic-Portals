@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "comment": "Default portal requirements configuration for Dynamic Portals mod",
+  "portals": {
+    "minecraft:the_nether": {
+      "enabled": true,
+      "advancement": "dynamicportals:nether_access",
+      "requirements": {
+        "mobs": {
+          "overworld_hostiles": [
+            "minecraft:zombie",
+            "minecraft:skeleton",
+            "minecraft:creeper",
+            "minecraft:spider",
+            "minecraft:enderman",
+            "minecraft:witch"
+          ],
+          "overworld_variants": [
+            "minecraft:drowned",
+            "minecraft:husk",
+            "minecraft:stray",
+            "minecraft:bogged"
+          ],
+          "trial_chambers": [
+            "minecraft:breeze"
+          ],
+          "illagers": [
+            "minecraft:pillager",
+            "minecraft:vindicator",
+            "minecraft:evoker"
+          ],
+          "others": [
+            "minecraft:slime"
+          ]
+        },
+        "bosses": [
+          "minecraft:elder_guardian"
+        ],
+        "items": [
+          "minecraft:diamond"
+        ]
+      },
+      "display": {
+        "name": "Nether Portal",
+        "description": "Defeat the Overworld before venturing to the Nether",
+        "color": 16776533,
+        "icon": "minecraft:netherrack",
+        "sort_order": 1
+      }
+    },
+    "minecraft:the_end": {
+      "enabled": true,
+      "advancement": "dynamicportals:end_access",
+      "parent_advancement": "dynamicportals:nether_access",
+      "requirements": {
+        "mobs": {
+          "nether_hostiles": [
+            "minecraft:ghast",
+            "minecraft:blaze",
+            "minecraft:wither_skeleton"
+          ],
+          "piglins": [
+            "minecraft:piglin",
+            "minecraft:piglin_brute"
+          ],
+          "others": [
+            "minecraft:hoglin"
+          ]
+        },
+        "bosses": [
+          "minecraft:warden",
+          "minecraft:wither"
+        ],
+        "items": [
+          "minecraft:netherite_ingot"
+        ]
+      },
+      "display": {
+        "name": "End Portal",
+        "description": "Conquer the Nether to unlock the End",
+        "color": 16724821,
+        "icon": "minecraft:end_stone",
+        "sort_order": 2
+      }
+    }
+  }
+}

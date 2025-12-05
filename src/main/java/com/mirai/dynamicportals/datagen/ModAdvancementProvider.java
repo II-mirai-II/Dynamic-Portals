@@ -12,7 +12,6 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.data.PackOutput;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.common.data.AdvancementProvider;
 import net.neoforged.neoforge.common.data.ExistingFileHelper;
@@ -22,6 +21,11 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
+/**
+ * Generates advancement JSON files for portal access.
+ * Uses VanillaRequirements for mob/item definitions.
+ * IMPORTANT: Must stay in sync with vanilla.json config!
+ */
 public class ModAdvancementProvider extends AdvancementProvider {
 
     public ModAdvancementProvider(PackOutput output, CompletableFuture<HolderLookup.Provider> registries, ExistingFileHelper fileHelper) {
@@ -33,6 +37,8 @@ public class ModAdvancementProvider extends AdvancementProvider {
         public void generate(HolderLookup.Provider registries, Consumer<AdvancementHolder> saver, ExistingFileHelper existingFileHelper) {
             
             // Nether Access Advancement
+            // IMPORTANT: Using getAllMobs() and getAllBosses() to include mod compatibility mobs
+            // This ensures the advancement matches runtime requirements in PortalRequirementRegistry
             AdvancementHolder netherAccess = Advancement.Builder.advancement()
                     .display(
                             Items.NETHERRACK,
@@ -44,37 +50,21 @@ public class ModAdvancementProvider extends AdvancementProvider {
                             true,
                             false
                     )
-                    // Require killing all overworld mobs
                     .addCriterion("kill_overworld_mobs", ModTriggers.KILL_REQUIREMENT.get().createCriterion(
                             new KillRequirementTrigger.TriggerInstance(
                                     Optional.empty(),
-                                    List.of(
-                                            EntityType.ZOMBIE,
-                                            EntityType.SKELETON,
-                                            EntityType.CREEPER,
-                                            EntityType.SPIDER,
-                                            EntityType.ENDERMAN,
-                                            EntityType.WITCH,
-                                            EntityType.SLIME,
-                                            EntityType.DROWNED,
-                                            EntityType.HUSK,
-                                            EntityType.STRAY,
-                                            EntityType.BREEZE,
-                                            EntityType.BOGGED,
-                                            EntityType.PILLAGER,
-                                            EntityType.VINDICATOR,
-                                            EntityType.EVOKER
-                                    ),
-                                    List.of(EntityType.ELDER_GUARDIAN), // Bosses
-                                    List.of(Items.DIAMOND)
+                                    VanillaRequirements.NETHER.getAllMobs(),  // Includes mod compat mobs
+                                    VanillaRequirements.NETHER.getAllBosses(),  // Includes mod compat bosses
+                                    VanillaRequirements.NETHER.getItems()
                             )
                     ))
-                    // Require obtaining diamond
                     .addCriterion("has_diamond", InventoryChangeTrigger.TriggerInstance.hasItems(Items.DIAMOND))
                     .requirements(AdvancementRequirements.Strategy.AND)
                     .save(saver, ModConstants.NETHER_ACCESS_ADVANCEMENT.toString());
 
             // End Access Advancement
+            // IMPORTANT: Using getAllMobs() and getAllBosses() to include mod compatibility mobs
+            // This ensures the advancement matches runtime requirements in PortalRequirementRegistry
             Advancement.Builder.advancement()
                     .parent(netherAccess)
                     .display(
@@ -87,23 +77,14 @@ public class ModAdvancementProvider extends AdvancementProvider {
                             true,
                             false
                     )
-                    // Require killing all nether mobs
                     .addCriterion("kill_nether_mobs", ModTriggers.KILL_REQUIREMENT.get().createCriterion(
                             new KillRequirementTrigger.TriggerInstance(
                                     Optional.empty(),
-                                    List.of(
-                                            EntityType.GHAST,
-                                            EntityType.BLAZE,
-                                            EntityType.WITHER_SKELETON,
-                                            EntityType.PIGLIN,
-                                            EntityType.PIGLIN_BRUTE,
-                                            EntityType.HOGLIN
-                                    ),
-                                    List.of(EntityType.WARDEN, EntityType.WITHER), // Bosses
-                                    List.of(Items.NETHERITE_INGOT)
+                                    VanillaRequirements.END.getAllMobs(),  // Includes mod compat mobs
+                                    VanillaRequirements.END.getAllBosses(),  // Includes mod compat bosses
+                                    VanillaRequirements.END.getItems()
                             )
                     ))
-                    // Require obtaining netherite
                     .addCriterion("has_netherite", InventoryChangeTrigger.TriggerInstance.hasItems(Items.NETHERITE_INGOT))
                     .requirements(AdvancementRequirements.Strategy.AND)
                     .save(saver, ModConstants.END_ACCESS_ADVANCEMENT.toString());

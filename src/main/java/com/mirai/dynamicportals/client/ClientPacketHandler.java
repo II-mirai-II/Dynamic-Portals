@@ -1,5 +1,7 @@
 package com.mirai.dynamicportals.client;
 
+import com.mirai.dynamicportals.DynamicPortals;
+import com.mirai.dynamicportals.config.ModConfig;
 import com.mirai.dynamicportals.network.SyncProgressPacket;
 import com.mirai.dynamicportals.network.SyncRequirementsPacket;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -7,15 +9,31 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 public class ClientPacketHandler {
     public static void handleSyncProgress(final SyncProgressPacket packet, final IPayloadContext context) {
         context.enqueueWork(() -> {
-            // Store the synced data in client-side cache for HUD rendering
-            ClientProgressCache.updateFromPacket(packet);
+            try {
+                ClientProgressCache.updateFromPacket(packet);
+                
+                if (ModConfig.COMMON.debugLogging.get()) {
+                    DynamicPortals.LOGGER.debug("Synced player progress: {} entities killed",
+                        packet.killedMobs().size());
+                }
+            } catch (Exception e) {
+                DynamicPortals.LOGGER.error("Failed to process SyncProgressPacket", e);
+            }
         });
     }
 
     public static void handleSyncRequirements(final SyncRequirementsPacket packet, final IPayloadContext context) {
         context.enqueueWork(() -> {
-            // Store the synced requirements in client-side cache for HUD rendering
-            ClientRequirementsCache.updateFromPacket(packet);
+            try {
+                ClientRequirementsCache.updateFromPacket(packet);
+                
+                if (ModConfig.COMMON.debugLogging.get()) {
+                    DynamicPortals.LOGGER.debug("Synced portal requirements: {} dimensions",
+                        packet.requirements().size());
+                }
+            } catch (Exception e) {
+                DynamicPortals.LOGGER.error("Failed to process SyncRequirementsPacket", e);
+            }
         });
     }
 }
