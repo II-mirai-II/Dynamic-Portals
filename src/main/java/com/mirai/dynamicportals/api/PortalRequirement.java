@@ -25,6 +25,8 @@ public class PortalRequirement {
     private final Integer displayColor;
     private final ResourceLocation displayIcon;
     private final int sortOrder;
+    private final String blockedMessage;
+    private final String unlockedMessage;
 
     private PortalRequirement(Builder builder) {
         this.dimension = builder.dimension;
@@ -37,6 +39,8 @@ public class PortalRequirement {
         this.displayColor = builder.displayColor;
         this.displayIcon = builder.displayIcon;
         this.sortOrder = builder.sortOrder;
+        this.blockedMessage = builder.blockedMessage;
+        this.unlockedMessage = builder.unlockedMessage;
     }
 
     public ResourceLocation getDimension() {
@@ -78,6 +82,14 @@ public class PortalRequirement {
     public int getSortOrder() {
         return sortOrder;
     }
+    
+    public String getBlockedMessage() {
+        return blockedMessage;
+    }
+    
+    public String getUnlockedMessage() {
+        return unlockedMessage;
+    }
 
     public static Builder builder(ResourceLocation dimension) {
         return new Builder(dimension);
@@ -96,6 +108,8 @@ public class PortalRequirement {
         private Integer displayColor;
         private ResourceLocation displayIcon;
         private int sortOrder = 0;
+        private String blockedMessage;
+        private String unlockedMessage;
 
         private Builder(ResourceLocation dimension) {
             this.dimension = dimension;
@@ -187,6 +201,16 @@ public class PortalRequirement {
         
         public Builder sortOrder(int order) {
             this.sortOrder = order;
+            return this;
+        }
+        
+        public Builder blockedMessage(String message) {
+            this.blockedMessage = message;
+            return this;
+        }
+        
+        public Builder unlockedMessage(String message) {
+            this.unlockedMessage = message;
             return this;
         }
 

@@ -3,7 +3,8 @@ package com.mirai.dynamicportals.advancement;
 import com.mirai.dynamicportals.api.PortalRequirement;
 import com.mirai.dynamicportals.api.PortalRequirementRegistry;
 import com.mirai.dynamicportals.data.ModAttachments;
-import com.mirai.dynamicportals.data.PlayerProgressData;
+import com.mirai.dynamicportals.manager.GlobalProgressManager;
+import com.mirai.dynamicportals.progress.IProgressData;
 import com.mirai.dynamicportals.util.ModConstants;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -55,7 +56,7 @@ public class KillRequirementTrigger extends SimpleCriterionTrigger<KillRequireme
         );
 
         public boolean matches(ServerPlayer player) {
-            PlayerProgressData progressData = player.getData(ModAttachments.PLAYER_PROGRESS);
+            IProgressData progressData = GlobalProgressManager.getProgressData(player);
 
             // Determine which dimension this advancement is for by checking the lists
             ResourceLocation dimension = determineDimension();
@@ -130,7 +131,7 @@ public class KillRequirementTrigger extends SimpleCriterionTrigger<KillRequireme
         }
 
         private boolean hasObtainedItem(ServerPlayer player, Item item) {
-            PlayerProgressData progressData = player.getData(ModAttachments.PLAYER_PROGRESS);
+            IProgressData progressData = GlobalProgressManager.getProgressData(player);
             // Check both persistent tracking and current inventory
             return progressData.hasItemBeenObtained(item) || 
                    player.getInventory().hasAnyMatching(stack -> stack.is(item));

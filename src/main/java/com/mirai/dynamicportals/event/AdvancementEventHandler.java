@@ -1,8 +1,9 @@
 package com.mirai.dynamicportals.event;
 
-import com.mirai.dynamicportals.data.ModAttachments;
-import com.mirai.dynamicportals.data.PlayerProgressData;
+import com.mirai.dynamicportals.config.ModConfig;
+import com.mirai.dynamicportals.manager.GlobalProgressManager;
 import com.mirai.dynamicportals.network.SyncProgressPacket;
+import com.mirai.dynamicportals.progress.IProgressData;
 import com.mirai.dynamicportals.util.ModConstants;
 import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.server.level.ServerPlayer;
@@ -19,15 +20,31 @@ public class AdvancementEventHandler {
         }
 
         AdvancementHolder advancement = event.getAdvancement();
-        PlayerProgressData progressData = player.getData(ModAttachments.PLAYER_PROGRESS);
+        IProgressData progressData = GlobalProgressManager.getProgressData(player);
 
         // Track when player unlocks our advancements
         if (advancement.id().equals(ModConstants.NETHER_ACCESS_ADVANCEMENT)) {
-            progressData.unlockAchievement(ModConstants.NETHER_ACCESS_ADVANCEMENT);
-            PacketDistributor.sendToPlayer(player, SyncProgressPacket.fromProgressData(progressData));
+            progressData.recordAdvancementUnlocked(ModConstants.NETHER_ACCESS_ADVANCEMENT);
+            
+            // Broadcast to all if global mode
+            if (ModConfig.isGlobalProgressEnabled()) {
+                for (ServerPlayer onlinePlayer : player.server.getPlayerList().getPlayers()) {
+                    PacketDistributor.sendToPlayer(onlinePlayer, SyncProgressPacket.fromProgressData(progressData));
+                }
+            } else {
+                PacketDistributor.sendToPlayer(player, SyncProgressPacket.fromProgressData(progressData));
+            }
         } else if (advancement.id().equals(ModConstants.END_ACCESS_ADVANCEMENT)) {
-            progressData.unlockAchievement(ModConstants.END_ACCESS_ADVANCEMENT);
-            PacketDistributor.sendToPlayer(player, SyncProgressPacket.fromProgressData(progressData));
+            progressData.recordAdvancementUnlocked(ModConstants.END_ACCESS_ADVANCEMENT);
+            
+            // Broadcast to all if global mode
+            if (ModConfig.isGlobalProgressEnabled()) {
+                for (ServerPlayer onlinePlayer : player.server.getPlayerList().getPlayers()) {
+                    PacketDistributor.sendToPlayer(onlinePlayer, SyncProgressPacket.fromProgressData(progressData));
+                }
+            } else {
+                PacketDistributor.sendToPlayer(player, SyncProgressPacket.fromProgressData(progressData));
+            }
         }
     }
 }

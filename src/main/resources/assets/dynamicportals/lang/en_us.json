@@ -2,11 +2,9 @@
   "message.dynamicportals.portal_blocked.nether": "You cannot enter the Nether! Complete the Nether Access achievement first.",
   "message.dynamicportals.portal_blocked.end": "You cannot enter the End! Complete the End Access achievement first.",
   "message.dynamicportals.portal_blocked_generic": "You cannot enter %s! Complete the required achievements first.",
-  "message.dynamicportals.progress_reset": "Your progress has been reset due to dying 10 times!",
   "message.dynamicportals.achievement_unlocked": "Achievement unlocked: %s",
 
   "hud.dynamicportals.title": "Portal Progress",
-  "hud.dynamicportals.deaths": "Deaths: %s/%s",
   "hud.dynamicportals.progress.overworld": "Progress: %s/%s",
   "hud.dynamicportals.progress.nether": "Progress: %s/%s",
   "hud.dynamicportals.phase.overworld": "Overworld → Nether",

@@ -2,7 +2,7 @@ package com.mirai.dynamicportals.util;
 
 import com.mirai.dynamicportals.api.PortalRequirement;
 import com.mirai.dynamicportals.api.PortalRequirementRegistry;
-import com.mirai.dynamicportals.data.PlayerProgressData;
+import com.mirai.dynamicportals.progress.IProgressData;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -56,11 +56,11 @@ public class PortalProgressUtils {
      * @param player The player to check and potentially unlock achievements for
      * @param progressData The player's progress data (will be modified if achievements are unlocked)
      */
-    public static void checkAndUnlockPortals(ServerPlayer player, PlayerProgressData progressData) {
+    public static void checkAndUnlockPortals(ServerPlayer player, IProgressData progressData) {
         // Check Nether Portal
-        if (!progressData.isAchievementUnlocked(ModConstants.NETHER_ACCESS_ADVANCEMENT)) {
+        if (!progressData.hasAdvancementBeenUnlocked(ModConstants.NETHER_ACCESS_ADVANCEMENT)) {
             if (isPortalCompleted(player, progressData, ModConstants.NETHER_DIMENSION)) {
-                progressData.unlockAchievement(ModConstants.NETHER_ACCESS_ADVANCEMENT);
+                progressData.recordAdvancementUnlocked(ModConstants.NETHER_ACCESS_ADVANCEMENT);
                 player.sendSystemMessage(Component.translatable(ModConstants.ADV_NETHER_TITLE)
                         .append(Component.literal(" - "))
                         .append(Component.translatable(ModConstants.ADV_NETHER_DESC)));
@@ -68,9 +68,9 @@ public class PortalProgressUtils {
         }
         
         // Check End Portal
-        if (!progressData.isAchievementUnlocked(ModConstants.END_ACCESS_ADVANCEMENT)) {
+        if (!progressData.hasAdvancementBeenUnlocked(ModConstants.END_ACCESS_ADVANCEMENT)) {
             if (isPortalCompleted(player, progressData, ModConstants.END_DIMENSION)) {
-                progressData.unlockAchievement(ModConstants.END_ACCESS_ADVANCEMENT);
+                progressData.recordAdvancementUnlocked(ModConstants.END_ACCESS_ADVANCEMENT);
                 player.sendSystemMessage(Component.translatable(ModConstants.ADV_END_TITLE)
                         .append(Component.literal(" - "))
                         .append(Component.translatable(ModConstants.ADV_END_DESC)));
@@ -99,7 +99,7 @@ public class PortalProgressUtils {
      * @param dimension The dimension identifier to check requirements for (e.g., ModConstants.NETHER_DIMENSION)
      * @return true if all requirements are met and the portal should be unlocked, false otherwise
      */
-    public static boolean isPortalCompleted(ServerPlayer player, PlayerProgressData progressData, ResourceLocation dimension) {
+    public static boolean isPortalCompleted(ServerPlayer player, IProgressData progressData, ResourceLocation dimension) {
         PortalRequirement requirement = PortalRequirementRegistry.getInstance().getRequirement(dimension);
         if (requirement == null) {
             return false;

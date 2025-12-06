@@ -5,7 +5,9 @@ import com.mirai.dynamicportals.api.PortalRequirementRegistry;
 import com.mirai.dynamicportals.config.ModConfig;
 import com.mirai.dynamicportals.data.ModAttachments;
 import com.mirai.dynamicportals.data.PlayerProgressData;
+import com.mirai.dynamicportals.manager.GlobalProgressManager;
 import com.mirai.dynamicportals.network.SyncProgressPacket;
+import com.mirai.dynamicportals.progress.IProgressData;
 import com.mirai.dynamicportals.util.ModConstants;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -44,7 +46,7 @@ public class PlayerEventHandler {
             return;
         }
 
-        PlayerProgressData progressData = player.getData(ModAttachments.PLAYER_PROGRESS);
+        IProgressData progressData = GlobalProgressManager.getProgressData(player);
         net.minecraft.world.item.Item pickedItem = event.getItemEntity().getItem().getItem();
 
         // Get all tracked items from registry
@@ -53,7 +55,7 @@ public class PlayerEventHandler {
         // Track items dynamically
         if (trackedItems.contains(pickedItem)) {
             if (!progressData.hasItemBeenObtained(pickedItem)) {
-                progressData.markItemObtained(pickedItem);
+                progressData.recordItemObtained(pickedItem);
                 
                 if (ModConfig.COMMON.debugLogging.get()) {
                     DynamicPortals.LOGGER.debug("Player {} obtained tracked item: {}", 
@@ -66,8 +68,14 @@ public class PlayerEventHandler {
                     com.mirai.dynamicportals.util.PortalProgressUtils.checkAndUnlockPortals(player, progressData);
                 }
                 
-                // Sync to client
-                PacketDistributor.sendToPlayer(player, SyncProgressPacket.fromProgressData(progressData));
+                // Sync to client (broadcast to all if global mode)
+                if (ModConfig.isGlobalProgressEnabled()) {
+                    for (ServerPlayer onlinePlayer : player.server.getPlayerList().getPlayers()) {
+                        PacketDistributor.sendToPlayer(onlinePlayer, SyncProgressPacket.fromProgressData(progressData));
+                    }
+                } else {
+                    PacketDistributor.sendToPlayer(player, SyncProgressPacket.fromProgressData(progressData));
+                }
             }
         }
     }
@@ -79,11 +87,14 @@ public class PlayerEventHandler {
     public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer serverPlayer) {
             // Sync progress data when player logs in
-            PlayerProgressData progressData = serverPlayer.getData(ModAttachments.PLAYER_PROGRESS);
+            IProgressData progressData = GlobalProgressManager.getProgressData(serverPlayer);
             PacketDistributor.sendToPlayer(serverPlayer, SyncProgressPacket.fromProgressData(progressData));
             
-            // Check if player can complete any advancements they missed
-            checkAndGrantAdvancements(serverPlayer, progressData);
+            // Check if player can complete any advancements they missed (only for individual mode)
+            if (!ModConfig.isGlobalProgressEnabled()) {
+                PlayerProgressData playerData = GlobalProgressManager.getPlayerProgressData(serverPlayer);
+                checkAndGrantAdvancements(serverPlayer, playerData);
+            }
         }
     }
 
@@ -92,13 +103,13 @@ public class PlayerEventHandler {
         if (player.getAdvancements().getOrStartProgress(
                 player.server.getAdvancements().get(ModConstants.NETHER_ACCESS_ADVANCEMENT)
         ).isDone()) {
-            progressData.unlockAchievement(ModConstants.NETHER_ACCESS_ADVANCEMENT);
+            progressData.recordAdvancementUnlocked(ModConstants.NETHER_ACCESS_ADVANCEMENT);
         }
         
         if (player.getAdvancements().getOrStartProgress(
                 player.server.getAdvancements().get(ModConstants.END_ACCESS_ADVANCEMENT)
         ).isDone()) {
-            progressData.unlockAchievement(ModConstants.END_ACCESS_ADVANCEMENT);
+            progressData.recordAdvancementUnlocked(ModConstants.END_ACCESS_ADVANCEMENT);
         }
     }
 }

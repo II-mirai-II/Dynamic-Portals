@@ -6,7 +6,8 @@ import com.mirai.dynamicportals.compat.ModCompatibilityRegistry;
 import com.mirai.dynamicportals.config.CustomPortalRequirementsLoader;
 import com.mirai.dynamicportals.config.PortalRequirementsLoader;
 import com.mirai.dynamicportals.data.ModAttachments;
-import com.mirai.dynamicportals.data.PlayerProgressData;
+import com.mirai.dynamicportals.manager.GlobalProgressManager;
+import com.mirai.dynamicportals.progress.IProgressData;
 import com.mirai.dynamicportals.network.SyncProgressPacket;
 import com.mirai.dynamicportals.network.SyncRequirementsPacket;
 import com.mojang.brigadier.CommandDispatcher;
@@ -30,6 +31,17 @@ public class ModCommands {
                 .requires(source -> source.hasPermission(2)) // Requires OP level 2
                 .then(Commands.literal("reload")
                     .executes(ModCommands::reloadCommand)
+                )
+                .then(Commands.literal("mode")
+                    .executes(ModCommands::modeCommand)
+                )
+                .then(Commands.literal("migrate")
+                    .then(Commands.literal("toGlobal")
+                        .executes(ModCommands::migrateToGlobalCommand)
+                    )
+                    .then(Commands.literal("toIndividual")
+                        .executes(ModCommands::migrateToIndividualCommand)
+                    )
                 )
         );
     }
@@ -68,7 +80,7 @@ public class ModCommands {
                 PacketDistributor.sendToPlayer(player, newRequirementsPacket);
                 
                 // Re-send player progress (in case requirements changed)
-                PlayerProgressData progressData = player.getData(ModAttachments.PLAYER_PROGRESS);
+                IProgressData progressData = GlobalProgressManager.getProgressData(player);
                 PacketDistributor.sendToPlayer(player, SyncProgressPacket.fromProgressData(progressData));
                 
                 playerCount++;
@@ -141,5 +153,158 @@ public class ModCommands {
         }
         
         return new SyncRequirementsPacket(packetData);
+    }
+    
+    /**
+     * Display current progress mode (individual vs global)
+     */
+    private static int modeCommand(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        boolean isGlobalMode = com.mirai.dynamicportals.config.ModConfig.isGlobalProgressEnabled();
+        
+        if (isGlobalMode) {
+            source.sendSuccess(() -> Component.literal("Current Mode: ")
+                .withStyle(ChatFormatting.YELLOW)
+                .append(Component.literal("GLOBAL")
+                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD))
+                .append(Component.literal("\nAll players share the same progress.")
+                    .withStyle(ChatFormatting.GRAY)), false);
+        } else {
+            source.sendSuccess(() -> Component.literal("Current Mode: ")
+                .withStyle(ChatFormatting.YELLOW)
+                .append(Component.literal("INDIVIDUAL")
+                    .withStyle(ChatFormatting.BLUE, ChatFormatting.BOLD))
+                .append(Component.literal("\nEach player has their own progress.")
+                    .withStyle(ChatFormatting.GRAY)), false);
+        }
+        
+        source.sendSuccess(() -> Component.literal("To change mode, edit ")
+            .withStyle(ChatFormatting.GRAY)
+            .append(Component.literal("config/dynamicportals-common.toml")
+                .withStyle(ChatFormatting.AQUA))
+            .append(Component.literal(" and use /dynamicportals migrate")
+                .withStyle(ChatFormatting.GRAY)), false);
+        
+        return 1;
+    }
+    
+    /**
+     * Migrate all player progress to global progress
+     */
+    private static int migrateToGlobalCommand(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        
+        if (com.mirai.dynamicportals.config.ModConfig.isGlobalProgressEnabled()) {
+            source.sendFailure(Component.literal("Already in global mode. No migration needed.")
+                .withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        
+        try {
+            com.mirai.dynamicportals.data.GlobalProgressData globalData = 
+                com.mirai.dynamicportals.data.GlobalProgressData.get(source.getLevel());
+            
+            int playerCount = 0;
+            for (ServerPlayer player : source.getServer().getPlayerList().getPlayers()) {
+                com.mirai.dynamicportals.data.PlayerProgressData playerData = 
+                    GlobalProgressManager.getPlayerProgressData(player);
+                
+                // Merge player data into global
+                for (var entry : playerData.getKilledMobs().entrySet()) {
+                    if (entry.getValue()) {
+                        globalData.recordMobKill(entry.getKey());
+                    }
+                }
+                
+                for (var item : playerData.getObtainedItems()) {
+                    globalData.recordItemObtained(item);
+                }
+                
+                for (var achievement : playerData.getUnlockedAchievements()) {
+                    globalData.recordAdvancementUnlocked(achievement);
+                }
+                
+                playerCount++;
+            }
+            
+            final int finalCount = playerCount;
+            source.sendSuccess(() -> Component.literal("Successfully migrated progress from ")
+                .withStyle(ChatFormatting.GREEN)
+                .append(Component.literal(finalCount + " player(s)")
+                    .withStyle(ChatFormatting.GOLD))
+                .append(Component.literal(" to global mode.")
+                    .withStyle(ChatFormatting.GREEN)), true);
+            
+            source.sendSuccess(() -> Component.literal("⚠ Now enable global mode in config and reload the server!")
+                .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD), false);
+            
+            return 1;
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("Failed to migrate: " + e.getMessage())
+                .withStyle(ChatFormatting.RED));
+            DynamicPortals.LOGGER.error("Migration to global failed", e);
+            return 0;
+        }
+    }
+    
+    /**
+     * Migrate global progress to all individual players
+     */
+    private static int migrateToIndividualCommand(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        
+        if (!com.mirai.dynamicportals.config.ModConfig.isGlobalProgressEnabled()) {
+            source.sendFailure(Component.literal("Already in individual mode. No migration needed.")
+                .withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        
+        try {
+            com.mirai.dynamicportals.data.GlobalProgressData globalData = 
+                com.mirai.dynamicportals.data.GlobalProgressData.get(source.getLevel());
+            
+            int playerCount = 0;
+            for (ServerPlayer player : source.getServer().getPlayerList().getPlayers()) {
+                com.mirai.dynamicportals.data.PlayerProgressData playerData = 
+                    GlobalProgressManager.getPlayerProgressData(player);
+                
+                // Copy global data to each player
+                for (var entry : globalData.getKilledMobs().entrySet()) {
+                    if (entry.getValue()) {
+                        playerData.recordMobKill(entry.getKey());
+                    }
+                }
+                
+                for (var item : globalData.getObtainedItems()) {
+                    playerData.recordItemObtained(item);
+                }
+                
+                for (var achievement : globalData.getUnlockedAchievements()) {
+                    playerData.recordAdvancementUnlocked(achievement);
+                }
+                
+                // Sync to player
+                PacketDistributor.sendToPlayer(player, SyncProgressPacket.fromProgressData(playerData));
+                playerCount++;
+            }
+            
+            final int finalCount = playerCount;
+            source.sendSuccess(() -> Component.literal("Successfully migrated global progress to ")
+                .withStyle(ChatFormatting.GREEN)
+                .append(Component.literal(finalCount + " player(s)")
+                    .withStyle(ChatFormatting.GOLD))
+                .append(Component.literal(".")
+                    .withStyle(ChatFormatting.GREEN)), true);
+            
+            source.sendSuccess(() -> Component.literal("⚠ Now disable global mode in config and reload the server!")
+                .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD), false);
+            
+            return 1;
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("Failed to migrate: " + e.getMessage())
+                .withStyle(ChatFormatting.RED));
+            DynamicPortals.LOGGER.error("Migration to individual failed", e);
+            return 0;
+        }
     }
 }

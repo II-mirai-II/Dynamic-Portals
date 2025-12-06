@@ -121,10 +121,16 @@ public class DynamicPortals {
         // Now that server is fully started and tags are loaded, register requirements
         PortalRequirementRegistry.getInstance().clearRequirements();
         
-        // Load portal requirements from JSON configuration (internal defaults)
+        // Export vanilla requirements to external config folder for user customization
+        CustomPortalRequirementsLoader.exportVanillaRequirements();
+        
+        // 1. Load vanilla customizations (if they exist) - highest priority
+        CustomPortalRequirementsLoader.loadVanillaCustomizations();
+        
+        // 2. Load portal requirements from JSON configuration (internal defaults)
         PortalRequirementsLoader.loadAndRegister();
         
-        // Load custom portal requirements from config folder (user customization)
+        // 3. Load custom portal requirements from config folder (user overrides)
         CustomPortalRequirementsLoader.loadCustomRequirements();
         
         // Prepare requirements packet for clients
@@ -137,7 +143,8 @@ public class DynamicPortals {
         if (event.getEntity() instanceof ServerPlayer serverPlayer) {
             LOGGER.info("Player {} logged in - syncing data...", serverPlayer.getName().getString());
             
-            PlayerProgressData data = serverPlayer.getData(ModAttachments.PLAYER_PROGRESS);
+            com.mirai.dynamicportals.progress.IProgressData data = 
+                com.mirai.dynamicportals.manager.GlobalProgressManager.getProgressData(serverPlayer);
             
             // Send progress synchronization packet to client
             PacketDistributor.sendToPlayer(

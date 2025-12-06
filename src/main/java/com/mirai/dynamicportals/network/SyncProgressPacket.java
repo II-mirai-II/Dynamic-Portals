@@ -1,6 +1,6 @@
 package com.mirai.dynamicportals.network;
 
-import com.mirai.dynamicportals.data.PlayerProgressData;
+import com.mirai.dynamicportals.progress.IProgressData;
 import com.mirai.dynamicportals.util.ModConstants;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -19,7 +19,8 @@ import java.util.Set;
 public record SyncProgressPacket(
         Map<EntityType<?>, Boolean> killedMobs,
         Set<Item> obtainedItems,
-        Set<ResourceLocation> unlockedAchievements
+        Set<ResourceLocation> unlockedAchievements,
+        boolean isGlobal
 ) implements CustomPacketPayload {
 
     public static final Type<SyncProgressPacket> TYPE = new Type<>(ModConstants.id("sync_progress"));
@@ -103,14 +104,17 @@ public record SyncProgressPacket(
                 }
             },
             SyncProgressPacket::unlockedAchievements,
+            ByteBufCodecs.BOOL,
+            SyncProgressPacket::isGlobal,
             SyncProgressPacket::new
     );
 
-    public static SyncProgressPacket fromProgressData(PlayerProgressData data) {
+    public static SyncProgressPacket fromProgressData(IProgressData data) {
         return new SyncProgressPacket(
                 new HashMap<>(data.getKilledMobs()),
                 new HashSet<>(data.getObtainedItems()),
-                new HashSet<>(data.getUnlockedAchievements())
+                new HashSet<>(data.getUnlockedAchievements()),
+                data.isGlobal()
         );
     }
 

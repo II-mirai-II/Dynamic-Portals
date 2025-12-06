@@ -9,12 +9,16 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.neoforged.fml.ModList;
+import net.neoforged.fml.loading.FMLPaths;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
+import java.util.stream.Stream;
 
 /**
  * Registry for mod compatibility configurations.
@@ -42,26 +46,23 @@ public class ModCompatibilityRegistry {
     ) {}
     
     /**
-     * Detects installed mods and loads their compatibility configurations
+     * Detects installed mods and loads their compatibility configurations.
+     * Loads from both internal resources (bundled with mod) and external config folder (user customization).
      */
     public static void loadCompatibilityConfigs() {
         DynamicPortals.LOGGER.info("Loading mod compatibility configurations...");
         
-        // List of known mod compatibility files
-        String[] knownMods = {
-            "mowziesmobs",
-            "cataclysm",
-            "alexsmobs",
-            "twilightforest",
-            "iceandfire",
-            "born_in_chaos_v1"
-        };
+        // Get external config folder
+        Path configFolder = FMLPaths.CONFIGDIR.get().resolve("dynamicportals/mod_compat");
         
-        for (String modId : knownMods) {
-            if (isModLoaded(modId)) {
-                loadModConfig(modId);
-            }
-        }
+        // Export default configs to external folder for user editing
+        exportDefaultConfigs(configFolder);
+        
+        // 1. Load internal configs (bundled with mod) for known mods
+        loadInternalConfigs();
+        
+        // 2. Load external configs (user customization) - overrides internal
+        loadExternalConfigs(configFolder);
         
         DynamicPortals.LOGGER.info("Loaded {} mod compatibility configuration(s)", LOADED_CONFIGS.size());
     }
@@ -71,41 +72,6 @@ public class ModCompatibilityRegistry {
      */
     public static boolean isModLoaded(String modId) {
         return ModList.get().isLoaded(modId);
-    }
-    
-    /**
-     * Loads a specific mod's compatibility configuration
-     */
-    private static void loadModConfig(String modId) {
-        String configPath = COMPAT_PATH + modId + ".json";
-        
-        try (InputStream stream = ModCompatibilityRegistry.class.getResourceAsStream(configPath)) {
-            if (stream == null) {
-                DynamicPortals.LOGGER.debug("No compatibility config found for mod: {}", modId);
-                return;
-            }
-            
-            InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8);
-            JsonObject json = GSON.fromJson(reader, JsonObject.class);
-            
-            ModCompatConfig config = parseConfig(json);
-            
-            if (config.enabled()) {
-                LOADED_CONFIGS.put(modId, config);
-                DynamicPortals.LOGGER.info("Loaded compatibility config for mod: {} ({} mobs, {} bosses)", 
-                    modId, 
-                    config.overworldMobs().size() + config.netherMobs().size() + config.endMobs().size(),
-                    config.bosses().size()
-                );
-            } else {
-                DynamicPortals.LOGGER.info("Compatibility config for mod {} is disabled", modId);
-            }
-            
-        } catch (IOException e) {
-            DynamicPortals.LOGGER.error("Failed to load compatibility config for mod: {}", modId, e);
-        } catch (Exception e) {
-            DynamicPortals.LOGGER.error("Failed to parse compatibility config for mod: {}", modId, e);
-        }
     }
     
     /**
@@ -219,5 +185,146 @@ public class ModCompatibilityRegistry {
      */
     public static void clear() {
         LOADED_CONFIGS.clear();
+    }
+    
+    /**
+     * Load internal compatibility configs (bundled with mod)
+     */
+    private static void loadInternalConfigs() {
+        String[] knownMods = {
+            "mowziesmobs",
+            "cataclysm",
+            "alexsmobs",
+            "twilightforest",
+            "iceandfire",
+            "born_in_chaos_v1"
+        };
+        
+        for (String modId : knownMods) {
+            if (isModLoaded(modId)) {
+                loadInternalModConfig(modId);
+            }
+        }
+    }
+    
+    /**
+     * Load external compatibility configs from config folder.
+     * Allows users to add custom mod compatibility without recompiling.
+     */
+    private static void loadExternalConfigs(Path configFolder) {
+        if (!Files.exists(configFolder)) {
+            return;
+        }
+        
+        try (Stream<Path> files = Files.list(configFolder)) {
+            files.filter(p -> p.toString().endsWith(".json"))
+                 .forEach(path -> {
+                     try {
+                         loadExternalConfig(path);
+                     } catch (Exception e) {
+                         DynamicPortals.LOGGER.error("Failed to load external config: {}", path, e);
+                     }
+                 });
+        } catch (IOException e) {
+            DynamicPortals.LOGGER.error("Failed to list external mod compatibility configs", e);
+        }
+    }
+    
+    /**
+     * Export default configs to external folder for user editing
+     */
+    private static void exportDefaultConfigs(Path configFolder) {
+        try {
+            Files.createDirectories(configFolder);
+            
+            String[] defaultMods = {
+                "mowziesmobs",
+                "cataclysm",
+                "alexsmobs",
+                "twilightforest",
+                "iceandfire",
+                "born_in_chaos_v1"
+            };
+            
+            for (String modId : defaultMods) {
+                Path outputPath = configFolder.resolve(modId + ".json");
+                
+                // Only export if file doesn't exist (don't overwrite user edits)
+                if (!Files.exists(outputPath)) {
+                    String resourcePath = COMPAT_PATH + modId + ".json";
+                    
+                    try (InputStream stream = ModCompatibilityRegistry.class.getResourceAsStream(resourcePath)) {
+                        if (stream != null) {
+                            Files.copy(stream, outputPath);
+                            DynamicPortals.LOGGER.debug("Exported default config for mod: {}", modId);
+                        }
+                    } catch (IOException e) {
+                        DynamicPortals.LOGGER.warn("Failed to export config for mod: {}", modId, e);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            DynamicPortals.LOGGER.error("Failed to create mod compatibility config folder", e);
+        }
+    }
+    
+    /**
+     * Load a config from internal resources
+     */
+    private static void loadInternalModConfig(String modId) {
+        String configPath = COMPAT_PATH + modId + ".json";
+        
+        try (InputStream stream = ModCompatibilityRegistry.class.getResourceAsStream(configPath)) {
+            if (stream == null) {
+                DynamicPortals.LOGGER.debug("No internal compatibility config found for mod: {}", modId);
+                return;
+            }
+            
+            InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8);
+            JsonObject json = GSON.fromJson(reader, JsonObject.class);
+            
+            ModCompatConfig config = parseConfig(json);
+            
+            if (config.enabled()) {
+                LOADED_CONFIGS.put(modId, config);
+                DynamicPortals.LOGGER.info("Loaded internal compatibility config for mod: {} ({} mobs, {} bosses)", 
+                    modId, 
+                    config.overworldMobs().size() + config.netherMobs().size() + config.endMobs().size(),
+                    config.bosses().size() + config.netherBosses().size());
+            } else {
+                DynamicPortals.LOGGER.info("Compatibility config for mod {} is disabled", modId);
+            }
+            
+        } catch (IOException e) {
+            DynamicPortals.LOGGER.error("Failed to load internal compatibility config for mod: {}", modId, e);
+        } catch (Exception e) {
+            DynamicPortals.LOGGER.error("Failed to parse internal compatibility config for mod: {}", modId, e);
+        }
+    }
+    
+    /**
+     * Load a config from external file (user customization)
+     */
+    private static void loadExternalConfig(Path configPath) throws IOException {
+        String fileName = configPath.getFileName().toString();
+        String modId = fileName.replace(".json", "");
+        
+        DynamicPortals.LOGGER.debug("Loading external config: {}", configPath);
+        
+        try (InputStreamReader reader = new InputStreamReader(Files.newInputStream(configPath), StandardCharsets.UTF_8)) {
+            JsonObject json = GSON.fromJson(reader, JsonObject.class);
+            ModCompatConfig config = parseConfig(json);
+            
+            if (config.enabled()) {
+                // External configs override internal ones
+                LOADED_CONFIGS.put(modId, config);
+                DynamicPortals.LOGGER.info("Loaded EXTERNAL compatibility config for mod: {} ({} mobs, {} bosses)", 
+                    modId, 
+                    config.overworldMobs().size() + config.netherMobs().size() + config.endMobs().size(),
+                    config.bosses().size() + config.netherBosses().size());
+            } else {
+                DynamicPortals.LOGGER.info("External compatibility config for mod {} is disabled", modId);
+            }
+        }
     }
 }

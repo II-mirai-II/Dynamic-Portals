@@ -8,92 +8,108 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
-import net.neoforged.neoforge.common.util.INBTSerializable;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.saveddata.SavedData;
 
 import java.util.*;
 
-public class PlayerProgressData implements IProgressData, INBTSerializable<CompoundTag> {
+/**
+ * World-level progress data shared by all players.
+ * Stored using Minecraft's SavedData system for persistence.
+ */
+public class GlobalProgressData extends SavedData implements IProgressData {
+    
+    private static final String DATA_NAME = "dynamicportals_global_progress";
+    
     private final Map<EntityType<?>, Boolean> killedMobs = new HashMap<>();
-    private final Set<net.minecraft.world.item.Item> obtainedItems = new HashSet<>();
+    private final Set<Item> obtainedItems = new HashSet<>();
     private final Set<ResourceLocation> unlockedAchievements = new HashSet<>();
     private int dataVersion = ModConstants.CURRENT_DATA_VERSION;
-
-    public PlayerProgressData() {
+    
+    public GlobalProgressData() {
+        super();
     }
-
+    
+    public GlobalProgressData(CompoundTag nbt, HolderLookup.Provider provider) {
+        this();
+        load(nbt, provider);
+    }
+    
+    /**
+     * Get or create global progress data for the given level.
+     */
+    public static GlobalProgressData get(ServerLevel level) {
+        return level.getDataStorage().computeIfAbsent(
+            new SavedData.Factory<>(
+                GlobalProgressData::new,
+                GlobalProgressData::new,
+                null
+            ),
+            DATA_NAME
+        );
+    }
+    
     // IProgressData implementation
     @Override
     public void recordMobKill(EntityType<?> mobType) {
-        markMobKilled(mobType);
+        killedMobs.put(mobType, true);
+        setDirty();
     }
-
+    
     @Override
-    public void recordItemObtained(net.minecraft.world.item.Item item) {
-        markItemObtained(item);
+    public boolean hasMobBeenKilled(EntityType<?> mobType) {
+        return killedMobs.getOrDefault(mobType, false);
     }
-
+    
+    @Override
+    public void recordItemObtained(Item item) {
+        obtainedItems.add(item);
+        setDirty();
+    }
+    
+    @Override
+    public boolean hasItemBeenObtained(Item item) {
+        return obtainedItems.contains(item);
+    }
+    
     @Override
     public void recordAdvancementUnlocked(ResourceLocation advancement) {
-        unlockAchievement(advancement);
+        unlockedAchievements.add(advancement);
+        setDirty();
     }
-
+    
     @Override
     public boolean hasAdvancementBeenUnlocked(ResourceLocation advancement) {
-        return isAchievementUnlocked(advancement);
+        return unlockedAchievements.contains(advancement);
     }
-
+    
     @Override
-    public boolean isGlobal() {
-        return false; // PlayerProgressData is always individual
-    }
-
-    // Mob kill tracking
-    public void markMobKilled(EntityType<?> entityType) {
-        killedMobs.put(entityType, true);
-    }
-
-    public boolean hasMobBeenKilled(EntityType<?> entityType) {
-        return killedMobs.getOrDefault(entityType, false);
-    }
-
     public Map<EntityType<?>, Boolean> getKilledMobs() {
         return Collections.unmodifiableMap(killedMobs);
     }
-
-    // Item tracking
-    public void markItemObtained(net.minecraft.world.item.Item item) {
-        obtainedItems.add(item);
-    }
-
-    public boolean hasItemBeenObtained(net.minecraft.world.item.Item item) {
-        return obtainedItems.contains(item);
-    }
-
-    public Set<net.minecraft.world.item.Item> getObtainedItems() {
+    
+    @Override
+    public Set<Item> getObtainedItems() {
         return Collections.unmodifiableSet(obtainedItems);
     }
-
-    // Achievement tracking
-    public void unlockAchievement(ResourceLocation achievement) {
-        unlockedAchievements.add(achievement);
-    }
-
-    public boolean isAchievementUnlocked(ResourceLocation achievement) {
-        return unlockedAchievements.contains(achievement);
-    }
-
+    
+    @Override
     public Set<ResourceLocation> getUnlockedAchievements() {
         return Collections.unmodifiableSet(unlockedAchievements);
     }
-
-    // NBT Serialization
+    
     @Override
-    public CompoundTag serializeNBT(HolderLookup.Provider provider) {
-        CompoundTag nbt = new CompoundTag();
-        
+    public boolean isGlobal() {
+        return true;
+    }
+    
+    // SavedData serialization
+    @Override
+    public CompoundTag save(CompoundTag nbt, HolderLookup.Provider provider) {
         nbt.putInt(ModConstants.NBT_DATA_VERSION, dataVersion);
-
+        
         // Save killed mobs
         CompoundTag mobsTag = new CompoundTag();
         for (Map.Entry<EntityType<?>, Boolean> entry : killedMobs.entrySet()) {
@@ -103,32 +119,31 @@ public class PlayerProgressData implements IProgressData, INBTSerializable<Compo
             }
         }
         nbt.put(ModConstants.NBT_KILLED_MOBS, mobsTag);
-
+        
         // Save obtained items
         ListTag itemsTag = new ListTag();
-        for (net.minecraft.world.item.Item item : obtainedItems) {
+        for (Item item : obtainedItems) {
             ResourceLocation itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item);
             if (itemId != null) {
                 itemsTag.add(StringTag.valueOf(itemId.toString()));
             }
         }
         nbt.put(ModConstants.NBT_OBTAINED_ITEMS, itemsTag);
-
+        
         // Save unlocked achievements
         ListTag achievementsTag = new ListTag();
         for (ResourceLocation achievement : unlockedAchievements) {
             achievementsTag.add(StringTag.valueOf(achievement.toString()));
         }
         nbt.put(ModConstants.NBT_UNLOCKED_ACHIEVEMENTS, achievementsTag);
-
+        
         return nbt;
     }
-
-    @Override
-    public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
-        // Load data version for potential migrations
+    
+    private void load(CompoundTag nbt, HolderLookup.Provider provider) {
+        // Load data version
         dataVersion = nbt.getInt(ModConstants.NBT_DATA_VERSION);
-
+        
         // Load killed mobs
         killedMobs.clear();
         if (nbt.contains(ModConstants.NBT_KILLED_MOBS)) {
@@ -139,20 +154,20 @@ public class PlayerProgressData implements IProgressData, INBTSerializable<Compo
                 entityType.ifPresent(type -> killedMobs.put(type, mobsTag.getBoolean(key)));
             }
         }
-
+        
         // Load obtained items
         obtainedItems.clear();
         if (nbt.contains(ModConstants.NBT_OBTAINED_ITEMS)) {
             ListTag itemsTag = nbt.getList(ModConstants.NBT_OBTAINED_ITEMS, Tag.TAG_STRING);
             for (Tag tag : itemsTag) {
                 ResourceLocation itemId = ResourceLocation.parse(tag.getAsString());
-                net.minecraft.world.item.Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(itemId);
+                Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(itemId);
                 if (item != null) {
                     obtainedItems.add(item);
                 }
             }
         }
-
+        
         // Load unlocked achievements
         unlockedAchievements.clear();
         if (nbt.contains(ModConstants.NBT_UNLOCKED_ACHIEVEMENTS)) {
@@ -161,15 +176,5 @@ public class PlayerProgressData implements IProgressData, INBTSerializable<Compo
                 unlockedAchievements.add(ResourceLocation.parse(tag.getAsString()));
             }
         }
-    }
-
-    public void copyFrom(PlayerProgressData other) {
-        this.killedMobs.clear();
-        this.killedMobs.putAll(other.killedMobs);
-        this.obtainedItems.clear();
-        this.obtainedItems.addAll(other.obtainedItems);
-        this.unlockedAchievements.clear();
-        this.unlockedAchievements.addAll(other.unlockedAchievements);
-        this.dataVersion = other.dataVersion;
     }
 }

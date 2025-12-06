@@ -10,11 +10,12 @@ import com.mirai.dynamicportals.util.RegistryUtils;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
+import net.neoforged.fml.loading.FMLPaths;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 
@@ -29,15 +30,90 @@ public class CustomPortalRequirementsLoader {
             .setLenient()  // Support JSON5-like syntax
             .create();
     
-    private static final String CONFIG_DIR = "config/dynamicportals";
     private static final String CONFIG_FILE = "portal_requirements.json5";
+    private static final String VANILLA_CONFIG_FILE = "portal_requirements_vanilla.json5";
+    
+    /**
+     * Export internal vanilla.json to external config folder for user customization.
+     * This allows users to customize even the default Nether/End requirements!
+     */
+    public static void exportVanillaRequirements() {
+        Path configFolder = FMLPaths.CONFIGDIR.get().resolve("dynamicportals");
+        Path vanillaPath = configFolder.resolve(VANILLA_CONFIG_FILE);
+        
+        // Only export if file doesn't exist (don't overwrite user edits)
+        if (Files.exists(vanillaPath)) {
+            return;
+        }
+        
+        try {
+            Files.createDirectories(configFolder);
+            
+            // Copy internal vanilla.json to external folder
+            String resourcePath = "/data/dynamicportals/portal_requirements/vanilla.json";
+            
+            try (InputStream stream = CustomPortalRequirementsLoader.class.getResourceAsStream(resourcePath)) {
+                if (stream != null) {
+                    Files.copy(stream, vanillaPath);
+                    DynamicPortals.LOGGER.info("Exported vanilla portal requirements to: {}", vanillaPath);
+                    DynamicPortals.LOGGER.info("You can now customize default Nether/End requirements by editing this file!");
+                } else {
+                    DynamicPortals.LOGGER.warn("Failed to find internal vanilla.json resource");
+                }
+            }
+        } catch (IOException e) {
+            DynamicPortals.LOGGER.error("Failed to export vanilla requirements", e);
+        }
+    }
+    
+    /**
+     * Load vanilla requirements customizations if the file exists.
+     * This is loaded BEFORE internal defaults, allowing users to override vanilla behavior.
+     */
+    public static void loadVanillaCustomizations() {
+        Path configFolder = FMLPaths.CONFIGDIR.get().resolve("dynamicportals");
+        Path vanillaPath = configFolder.resolve(VANILLA_CONFIG_FILE);
+        
+        if (!Files.exists(vanillaPath)) {
+            return; // No customizations, use internal defaults
+        }
+        
+        try {
+            String content = Files.readString(vanillaPath);
+            content = removeComments(content);
+            
+            PortalRequirementConfig config = GSON.fromJson(content, PortalRequirementConfig.class);
+            
+            if (config != null && config.getPortals() != null) {
+                DynamicPortals.LOGGER.info("Loading customized vanilla requirements from: {}", vanillaPath);
+                
+                for (Map.Entry<String, PortalRequirementConfig.PortalConfig> entry : config.getPortals().entrySet()) {
+                    String dimensionId = entry.getKey();
+                    PortalRequirementConfig.PortalConfig portalConfig = entry.getValue();
+                    
+                    if (!portalConfig.isEnabled()) {
+                        DynamicPortals.LOGGER.info("Vanilla portal requirement for {} is disabled", dimensionId);
+                        continue;
+                    }
+                    
+                    // Register directly (these override internal vanilla.json)
+                    PortalRequirementsLoader.registerPortalRequirement(dimensionId, portalConfig);
+                }
+                
+                DynamicPortals.LOGGER.info("Loaded customized vanilla requirements for {} portal(s)", config.getPortals().size());
+            }
+        } catch (IOException | JsonSyntaxException e) {
+            DynamicPortals.LOGGER.error("Failed to load vanilla customizations from {}", vanillaPath, e);
+        }
+    }
     
     /**
      * Load custom portal requirements from config folder.
      * This allows modpack creators to customize everything!
      */
     public static void loadCustomRequirements() {
-        Path configPath = Paths.get(CONFIG_DIR, CONFIG_FILE);
+        Path configFolder = FMLPaths.CONFIGDIR.get().resolve("dynamicportals");
+        Path configPath = configFolder.resolve(CONFIG_FILE);
         
         // Create default config if doesn't exist
         if (!Files.exists(configPath)) {

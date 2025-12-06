@@ -23,6 +23,8 @@ public class ModConfig {
         // Gameplay
         public final ModConfigSpec.BooleanValue enablePortalBlocking;
         public final ModConfigSpec.BooleanValue autoGrantAdvancements;
+        public final ModConfigSpec.IntValue assistTimeWindowSeconds;
+        public final ModConfigSpec.BooleanValue enableGlobalProgress;
         
         // UI
         public final ModConfigSpec.IntValue maxLinesPerPage;
@@ -53,9 +55,22 @@ public class ModConfig {
                              "Default: true")
                     .define("auto_grant_advancements", true);
             
-            builder.pop();
+            assistTimeWindowSeconds = builder
+                    .comment("Time window (in seconds) for kill assists.",
+                             "Players who damaged a mob within this window get credit for the kill.",
+                             "Useful for cooperative multiplayer gameplay.",
+                             "Range: 1-60, Default: 5")
+                    .defineInRange("assist_time_window_seconds", 5, 1, 60);
             
-            builder.comment("UI Settings")
+            enableGlobalProgress = builder
+                    .comment("Enable global (shared) progress mode.",
+                             "When enabled, all players share the same progress (kills, items, achievements).",
+                             "When disabled, each player has individual progress tracking.",
+                             "WARNING: Changing this setting mid-game requires migration. Use /dynamicportals migrate command.",
+                             "Default: false")
+                    .define("enable_global_progress", false);
+
+            builder.pop();            builder.comment("UI Settings")
                     .push("ui");
             
             maxLinesPerPage = builder
@@ -145,5 +160,22 @@ public class ModConfig {
                 return defaultValue;
             }
         }
+    }
+    
+    // Static helper methods for easy access
+    public static boolean isGlobalProgressEnabled() {
+        return COMMON.enableGlobalProgress.get();
+    }
+    
+    public static boolean isPortalBlockingEnabled() {
+        return COMMON.enablePortalBlocking.get();
+    }
+    
+    public static boolean shouldAutoGrantAdvancements() {
+        return COMMON.autoGrantAdvancements.get();
+    }
+    
+    public static int getAssistTimeWindowSeconds() {
+        return COMMON.assistTimeWindowSeconds.get();
     }
 }

@@ -1,9 +1,10 @@
 package com.mirai.dynamicportals.event;
 
 import com.mirai.dynamicportals.advancement.ModTriggers;
-import com.mirai.dynamicportals.data.ModAttachments;
-import com.mirai.dynamicportals.data.PlayerProgressData;
+import com.mirai.dynamicportals.config.ModConfig;
+import com.mirai.dynamicportals.manager.GlobalProgressManager;
 import com.mirai.dynamicportals.network.SyncProgressPacket;
+import com.mirai.dynamicportals.progress.IProgressData;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
@@ -28,14 +29,14 @@ public class MobKillHandler {
     // Track damage sources for assist system (last 5 seconds)
     private static final Map<LivingEntity, AssistTracker> DAMAGE_TRACKERS = new ConcurrentHashMap<>();
     private static final int CLEANUP_INTERVAL_TICKS = 200; // 10 seconds
-    private static final long ASSIST_WINDOW_MS = 5000L; // 5 seconds in milliseconds
     private static int tickCounter = 0;
     
     /**
-     * Get assist window in milliseconds (fixed at 5 seconds)
+     * Get assist window in milliseconds from config.
+     * Players who damaged a mob within this window will receive kill credit.
      */
     private static long getAssistWindowMs() {
-        return ASSIST_WINDOW_MS;
+        return ModConfig.COMMON.assistTimeWindowSeconds.get() * 1000L;
     }
 
     @SubscribeEvent
@@ -100,10 +101,10 @@ public class MobKillHandler {
         // Award kill credit to all contributors
         EntityType<?> entityType = entity.getType();
         for (ServerPlayer player : contributors) {
-            PlayerProgressData progressData = player.getData(ModAttachments.PLAYER_PROGRESS);
+            IProgressData progressData = GlobalProgressManager.getProgressData(player);
             
             if (!progressData.hasMobBeenKilled(entityType)) {
-                progressData.markMobKilled(entityType);
+                progressData.recordMobKill(entityType);
                 
                 // Trigger advancement check
                 ModTriggers.KILL_REQUIREMENT.get().trigger(player);
@@ -111,8 +112,15 @@ public class MobKillHandler {
                 // Check if player completed any portal requirements
                 com.mirai.dynamicportals.util.PortalProgressUtils.checkAndUnlockPortals(player, progressData);
                 
-                // Sync to client
-                PacketDistributor.sendToPlayer(player, SyncProgressPacket.fromProgressData(progressData));
+                // Sync to client (broadcast to all if global mode)
+                if (ModConfig.isGlobalProgressEnabled()) {
+                    // Broadcast to all online players in global mode
+                    for (ServerPlayer onlinePlayer : player.server.getPlayerList().getPlayers()) {
+                        PacketDistributor.sendToPlayer(onlinePlayer, SyncProgressPacket.fromProgressData(progressData));
+                    }
+                } else {
+                    PacketDistributor.sendToPlayer(player, SyncProgressPacket.fromProgressData(progressData));
+                }
             }
         }
     }

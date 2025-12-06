@@ -17,6 +17,7 @@ public class ClientProgressCache {
     private static Set<Item> obtainedItems = new HashSet<>();
     private static Set<ResourceLocation> unlockedAchievements = new HashSet<>();
     private static boolean cacheValid = false;
+    private static boolean isGlobalMode = false;
     
     // Cached ResourceLocation sets for performance
     private static Set<ResourceLocation> killedMobIdsCache = null;
@@ -25,6 +26,7 @@ public class ClientProgressCache {
         killedMobs = new HashMap<>(packet.killedMobs());
         obtainedItems = new HashSet<>(packet.obtainedItems());
         unlockedAchievements = new HashSet<>(packet.unlockedAchievements());
+        isGlobalMode = packet.isGlobal();
         cacheValid = true;
         
         // Invalidate cached ResourceLocation set
@@ -81,6 +83,10 @@ public class ClientProgressCache {
     public static boolean isCacheValid() {
         return cacheValid;
     }
+    
+    public static boolean isGlobalMode() {
+        return isGlobalMode;
+    }
 
     public static void invalidateCache() {
         cacheValid = false;
@@ -94,6 +100,7 @@ public class ClientProgressCache {
         obtainedItems.clear();
         unlockedAchievements.clear();
         cacheValid = false;
+        isGlobalMode = false;
         killedMobIdsCache = null;
         
         DynamicPortals.LOGGER.debug("Client progress cache cleared");

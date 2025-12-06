@@ -91,9 +91,10 @@ public class PortalRequirementsLoader {
     }
     
     /**
-     * Register a single portal requirement
+     * Register a single portal requirement from configuration.
+     * Made public to allow CustomPortalRequirementsLoader to use it.
      */
-    private static void registerPortalRequirement(String dimensionId, PortalRequirementConfig.PortalConfig portalConfig) {
+    public static void registerPortalRequirement(String dimensionId, PortalRequirementConfig.PortalConfig portalConfig) {
         ResourceLocation dimension = ResourceLocation.parse(dimensionId);
         PortalRequirement.Builder builder = PortalRequirement.builder(dimension);
         
@@ -151,6 +152,13 @@ public class PortalRequirementsLoader {
                 builder.displayIcon(ResourceLocation.parse(display.getIcon()));
             }
             builder.sortOrder(display.getSortOrder());
+            
+            if (display.getBlockedMessage() != null) {
+                builder.blockedMessage(display.getBlockedMessage());
+            }
+            if (display.getUnlockedMessage() != null) {
+                builder.unlockedMessage(display.getUnlockedMessage());
+            }
         }
         
         // Register

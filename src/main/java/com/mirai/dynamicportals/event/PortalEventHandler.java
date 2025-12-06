@@ -1,8 +1,8 @@
 package com.mirai.dynamicportals.event;
 
 import com.mirai.dynamicportals.config.ModConfig;
-import com.mirai.dynamicportals.data.ModAttachments;
-import com.mirai.dynamicportals.data.PlayerProgressData;
+import com.mirai.dynamicportals.manager.GlobalProgressManager;
+import com.mirai.dynamicportals.progress.IProgressData;
 import com.mirai.dynamicportals.util.ModConstants;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
@@ -25,7 +25,7 @@ public class PortalEventHandler {
         }
 
         ResourceKey<Level> targetDimension = event.getDimension();
-        PlayerProgressData progressData = player.getData(ModAttachments.PLAYER_PROGRESS);
+        IProgressData progressData = GlobalProgressManager.getProgressData(player);
 
         // Check if this dimension has portal requirements (supports custom dimensions)
         com.mirai.dynamicportals.api.PortalRequirement requirement = 
@@ -38,7 +38,7 @@ public class PortalEventHandler {
         
         // Check if player has unlocked the required advancement
         if (requirement.getRequiredAdvancement() != null) {
-            if (!progressData.isAchievementUnlocked(requirement.getRequiredAdvancement())) {
+            if (!progressData.hasAdvancementBeenUnlocked(requirement.getRequiredAdvancement())) {
                 event.setCanceled(true);
                 
                 // Debug logging
@@ -51,14 +51,22 @@ public class PortalEventHandler {
                     );
                 }
                 
-                // Send appropriate message based on dimension
-                if (targetDimension.location().equals(ModConstants.NETHER_DIMENSION)) {
-                    player.sendSystemMessage(Component.translatable(ModConstants.MSG_PORTAL_BLOCKED_NETHER));
-                } else if (targetDimension.location().equals(ModConstants.END_DIMENSION)) {
-                    player.sendSystemMessage(Component.translatable(ModConstants.MSG_PORTAL_BLOCKED_END));
+                // Send customizable blocked message
+                String blockedMsg = requirement.getBlockedMessage();
+                
+                if (blockedMsg != null && !blockedMsg.isEmpty()) {
+                    // Use custom message from config
+                    player.sendSystemMessage(Component.translatable(blockedMsg));
                 } else {
-                    player.sendSystemMessage(Component.translatable("msg.dynamicportals.portal_blocked_generic", 
-                        targetDimension.location().toString()));
+                    // Fallback to default messages
+                    if (targetDimension.location().equals(ModConstants.NETHER_DIMENSION)) {
+                        player.sendSystemMessage(Component.translatable(ModConstants.MSG_PORTAL_BLOCKED_NETHER));
+                    } else if (targetDimension.location().equals(ModConstants.END_DIMENSION)) {
+                        player.sendSystemMessage(Component.translatable(ModConstants.MSG_PORTAL_BLOCKED_END));
+                    } else {
+                        player.sendSystemMessage(Component.translatable("message.dynamicportals.portal_blocked_generic", 
+                            targetDimension.location().toString()));
+                    }
                 }
                 return;
             }

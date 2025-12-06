@@ -127,6 +127,12 @@ public class PortalRequirementConfig {
         @SerializedName("sort_order")
         private int sortOrder = 0;
         
+        @SerializedName("blocked_message")
+        private String blockedMessage;
+        
+        @SerializedName("unlocked_message")
+        private String unlockedMessage;
+        
         public String getName() {
             return name;
         }
@@ -145,6 +151,14 @@ public class PortalRequirementConfig {
         
         public int getSortOrder() {
             return sortOrder;
+        }
+        
+        public String getBlockedMessage() {
+            return blockedMessage;
+        }
+        
+        public String getUnlockedMessage() {
+            return unlockedMessage;
         }
     }
 }

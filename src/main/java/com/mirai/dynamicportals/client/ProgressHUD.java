@@ -262,9 +262,15 @@ public class ProgressHUD {
     private static RenderCache buildRenderCache(ClientRequirementsCache.CachedRequirement req, Minecraft mc) {
         Set<ResourceLocation> killedMobIds = ClientProgressCache.getKilledMobIds();
         Set<ResourceLocation> unlockedAchievements = ClientProgressCache.getUnlockedAchievements();
+        boolean isGlobalMode = ClientProgressCache.isGlobalMode();
         
-        // Title (cached Component)
-        Component title = Component.literal("§6§lPortal Requirements");
+        // Title (cached Component with global mode indicator)
+        Component title;
+        if (isGlobalMode) {
+            title = Component.literal("§6§lPortal Requirements §7[GLOBAL]");
+        } else {
+            title = Component.literal("§6§lPortal Requirements");
+        }
         
         // Phase navigation hint (optimized with StringBuilder)
         String switchKey = ModKeyBindings.SWITCH_PHASE_KEY.getTranslatedKeyMessage().getString();
