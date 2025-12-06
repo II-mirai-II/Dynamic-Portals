@@ -46,6 +46,9 @@ public record SyncProgressPacket(
                     ByteBufCodecs.VAR_INT.encode(buffer, map.size());
                     for (Map.Entry<EntityType<?>, Boolean> entry : map.entrySet()) {
                         ResourceLocation id = BuiltInRegistries.ENTITY_TYPE.getKey(entry.getKey());
+                        if (id == null) {
+                            throw new IllegalStateException("Cannot encode EntityType with null registry key: " + entry.getKey());
+                        }
                         ResourceLocation.STREAM_CODEC.encode(buffer, id);
                         ByteBufCodecs.BOOL.encode(buffer, entry.getValue());
                     }
@@ -72,6 +75,9 @@ public record SyncProgressPacket(
                     ByteBufCodecs.VAR_INT.encode(buffer, set.size());
                     for (Item item : set) {
                         ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+                        if (id == null) {
+                            throw new IllegalStateException("Cannot encode Item with null registry key: " + item);
+                        }
                         ResourceLocation.STREAM_CODEC.encode(buffer, id);
                     }
                 }

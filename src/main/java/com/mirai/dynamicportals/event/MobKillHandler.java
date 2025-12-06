@@ -1,15 +1,9 @@
 package com.mirai.dynamicportals.event;
 
 import com.mirai.dynamicportals.advancement.ModTriggers;
-import com.mirai.dynamicportals.api.PortalRequirement;
-import com.mirai.dynamicportals.api.PortalRequirementRegistry;
-import com.mirai.dynamicportals.config.ModConfig;
 import com.mirai.dynamicportals.data.ModAttachments;
 import com.mirai.dynamicportals.data.PlayerProgressData;
 import com.mirai.dynamicportals.network.SyncProgressPacket;
-import com.mirai.dynamicportals.util.ModConstants;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
@@ -18,21 +12,47 @@ import net.minecraft.world.entity.player.Player;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Handles mob kill tracking with assist system.
+ * Tracks damage dealt to mobs within a 5-second window to credit kills to multiple players.
+ */
 public class MobKillHandler {
     
     // Track damage sources for assist system (last 5 seconds)
     private static final Map<LivingEntity, AssistTracker> DAMAGE_TRACKERS = new ConcurrentHashMap<>();
+    private static final int CLEANUP_INTERVAL_TICKS = 200; // 10 seconds
+    private static final long ASSIST_WINDOW_MS = 5000L; // 5 seconds in milliseconds
+    private static int tickCounter = 0;
     
     /**
      * Get assist window in milliseconds (fixed at 5 seconds)
      */
     private static long getAssistWindowMs() {
-        return 5000L;
+        return ASSIST_WINDOW_MS;
+    }
+
+    @SubscribeEvent
+    public void onServerTick(ServerTickEvent.Post event) {
+        // Periodically cleanup old damage trackers to prevent memory leak
+        tickCounter++;
+        if (tickCounter >= CLEANUP_INTERVAL_TICKS) {
+            cleanupOldTrackers();
+            tickCounter = 0;
+        }
+    }
+
+    @SubscribeEvent
+    public void onServerStopping(ServerStoppingEvent event) {
+        // Clear all trackers on server shutdown
+        DAMAGE_TRACKERS.clear();
+        tickCounter = 0;
     }
 
     @SubscribeEvent
@@ -89,70 +109,12 @@ public class MobKillHandler {
                 ModTriggers.KILL_REQUIREMENT.get().trigger(player);
                 
                 // Check if player completed any portal requirements
-                checkPortalCompletion(player, progressData);
+                com.mirai.dynamicportals.util.PortalProgressUtils.checkAndUnlockPortals(player, progressData);
                 
                 // Sync to client
                 PacketDistributor.sendToPlayer(player, SyncProgressPacket.fromProgressData(progressData));
             }
         }
-    }
-    
-    /**
-     * Check if player has completed all requirements for any portal and unlock it
-     */
-    private void checkPortalCompletion(ServerPlayer player, PlayerProgressData progressData) {
-        // Check Nether Portal
-        if (!progressData.isAchievementUnlocked(ModConstants.NETHER_ACCESS_ADVANCEMENT)) {
-            if (isPortalCompleted(player, progressData, ModConstants.NETHER_DIMENSION)) {
-                progressData.unlockAchievement(ModConstants.NETHER_ACCESS_ADVANCEMENT);
-                player.sendSystemMessage(Component.translatable(ModConstants.ADV_NETHER_TITLE)
-                        .append(Component.literal(" - "))
-                        .append(Component.translatable(ModConstants.ADV_NETHER_DESC)));
-            }
-        }
-        
-        // Check End Portal
-        if (!progressData.isAchievementUnlocked(ModConstants.END_ACCESS_ADVANCEMENT)) {
-            if (isPortalCompleted(player, progressData, ModConstants.END_DIMENSION)) {
-                progressData.unlockAchievement(ModConstants.END_ACCESS_ADVANCEMENT);
-                player.sendSystemMessage(Component.translatable(ModConstants.ADV_END_TITLE)
-                        .append(Component.literal(" - "))
-                        .append(Component.translatable(ModConstants.ADV_END_DESC)));
-            }
-        }
-    }
-    
-    /**
-     * Check if all requirements for a portal are completed
-     */
-    private boolean isPortalCompleted(ServerPlayer player, PlayerProgressData progressData, ResourceLocation dimension) {
-        PortalRequirement requirement = PortalRequirementRegistry.getInstance().getRequirement(dimension);
-        if (requirement == null) {
-            return false;
-        }
-        
-        // Check all mobs killed
-        for (EntityType<?> mob : requirement.getRequiredMobs()) {
-            if (!progressData.hasMobBeenKilled(mob)) {
-                return false;
-            }
-        }
-        
-        // Check all bosses killed
-        for (EntityType<?> boss : requirement.getRequiredBosses()) {
-            if (!progressData.hasMobBeenKilled(boss)) {
-                return false;
-            }
-        }
-        
-        // Check all items obtained
-        for (net.minecraft.world.item.Item item : requirement.getRequiredItems()) {
-            if (!progressData.hasItemBeenObtained(item)) {
-                return false;
-            }
-        }
-        
-        return true;
     }
 
     // Clean up old trackers periodically

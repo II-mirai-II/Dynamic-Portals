@@ -57,9 +57,6 @@ public class PortalRequirementConfig {
         @SerializedName("advancement")
         private String advancement;
         
-        @SerializedName("parent_advancement")
-        private String parentAdvancement;
-        
         @SerializedName("requirements")
         private RequirementsSection requirements;
         
@@ -72,10 +69,6 @@ public class PortalRequirementConfig {
         
         public String getAdvancement() {
             return advancement;
-        }
-        
-        public String getParentAdvancement() {
-            return parentAdvancement;
         }
         
         public RequirementsSection getRequirements() {

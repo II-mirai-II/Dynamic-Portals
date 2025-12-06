@@ -22,9 +22,20 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
- * Generates advancement JSON files for portal access.
- * Uses VanillaRequirements for mob/item definitions.
- * IMPORTANT: Must stay in sync with vanilla.json config!
+ * Generates advancement JSON files for portal access at build time.
+ * 
+ * IMPORTANT DESIGN PATTERN:
+ * - Generated advancement JSONs reference VANILLA mobs/bosses only (static at build time)
+ * - At runtime, PortalRequirementRegistry dynamically adds mod compatibility mobs
+ * - The KillRequirementTrigger validates against the FULL runtime requirement list
+ * - This allows mod compatibility without regenerating advancement files
+ * 
+ * Example flow:
+ * 1. DataGen creates advancement: "Kill 15 vanilla overworld mobs"
+ * 2. Runtime loads: vanilla.json (15 mobs) + cataclysm.json (3 bosses) = 18 total
+ * 3. Player kills vanilla mobs + Cataclysm bosses
+ * 4. KillRequirementTrigger checks against runtime PortalRequirement (18 entities)
+ * 5. Advancement granted when ALL 18 are killed (vanilla + mod compat)
  */
 public class ModAdvancementProvider extends AdvancementProvider {
 
@@ -37,8 +48,7 @@ public class ModAdvancementProvider extends AdvancementProvider {
         public void generate(HolderLookup.Provider registries, Consumer<AdvancementHolder> saver, ExistingFileHelper existingFileHelper) {
             
             // Nether Access Advancement
-            // IMPORTANT: Using getAllMobs() and getAllBosses() to include mod compatibility mobs
-            // This ensures the advancement matches runtime requirements in PortalRequirementRegistry
+            // References vanilla mobs only - runtime adds mod compat via PortalRequirementRegistry
             AdvancementHolder netherAccess = Advancement.Builder.advancement()
                     .display(
                             Items.NETHERRACK,
@@ -53,8 +63,8 @@ public class ModAdvancementProvider extends AdvancementProvider {
                     .addCriterion("kill_overworld_mobs", ModTriggers.KILL_REQUIREMENT.get().createCriterion(
                             new KillRequirementTrigger.TriggerInstance(
                                     Optional.empty(),
-                                    VanillaRequirements.NETHER.getAllMobs(),  // Includes mod compat mobs
-                                    VanillaRequirements.NETHER.getAllBosses(),  // Includes mod compat bosses
+                                    VanillaRequirements.NETHER.getMobs(),  // Vanilla only - mod compat added at runtime
+                                    VanillaRequirements.NETHER.getBosses(),  // Vanilla only - mod compat added at runtime
                                     VanillaRequirements.NETHER.getItems()
                             )
                     ))
@@ -63,8 +73,7 @@ public class ModAdvancementProvider extends AdvancementProvider {
                     .save(saver, ModConstants.NETHER_ACCESS_ADVANCEMENT.toString());
 
             // End Access Advancement
-            // IMPORTANT: Using getAllMobs() and getAllBosses() to include mod compatibility mobs
-            // This ensures the advancement matches runtime requirements in PortalRequirementRegistry
+            // References vanilla mobs only - runtime adds mod compat via PortalRequirementRegistry
             Advancement.Builder.advancement()
                     .parent(netherAccess)
                     .display(
@@ -80,8 +89,8 @@ public class ModAdvancementProvider extends AdvancementProvider {
                     .addCriterion("kill_nether_mobs", ModTriggers.KILL_REQUIREMENT.get().createCriterion(
                             new KillRequirementTrigger.TriggerInstance(
                                     Optional.empty(),
-                                    VanillaRequirements.END.getAllMobs(),  // Includes mod compat mobs
-                                    VanillaRequirements.END.getAllBosses(),  // Includes mod compat bosses
+                                    VanillaRequirements.END.getMobs(),  // Vanilla only - mod compat added at runtime
+                                    VanillaRequirements.END.getBosses(),  // Vanilla only - mod compat added at runtime
                                     VanillaRequirements.END.getItems()
                             )
                     ))

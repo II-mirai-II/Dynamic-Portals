@@ -51,7 +51,10 @@ public class ClientRequirementsCache {
                     data.advancement(),
                     Collections.unmodifiableList(mobs),
                     Collections.unmodifiableList(bosses),
-                    Collections.unmodifiableList(items)
+                    Collections.unmodifiableList(items),
+                    data.displayName(),
+                    data.displayColor(),
+                    data.sortOrder()
             ));
             
             DynamicPortals.LOGGER.debug("  - {}: {} mobs, {} bosses, {} items",
@@ -85,13 +88,18 @@ public class ClientRequirementsCache {
         cacheValid = false;
     }
 
+    /**
+     * Clear all cached requirements. Called when player disconnects from server.
+     */
     public static void clear() {
         requirements.clear();
         cacheValid = false;
+        
+        DynamicPortals.LOGGER.debug("Client requirements cache cleared");
     }
 
     /**
-     * Cached requirement data with resolved game objects
+     * Cached requirement data with resolved game objects and display customization
      */
     public static class CachedRequirement {
         private final ResourceLocation dimension;
@@ -99,14 +107,21 @@ public class ClientRequirementsCache {
         private final List<EntityType<?>> mobs;
         private final List<EntityType<?>> bosses;
         private final List<Item> items;
+        private final String displayName;
+        private final Integer displayColor;
+        private final int sortOrder;
 
         public CachedRequirement(ResourceLocation dimension, ResourceLocation advancement,
-                                  List<EntityType<?>> mobs, List<EntityType<?>> bosses, List<Item> items) {
+                                  List<EntityType<?>> mobs, List<EntityType<?>> bosses, List<Item> items,
+                                  String displayName, Integer displayColor, int sortOrder) {
             this.dimension = dimension;
             this.advancement = advancement;
             this.mobs = mobs;
             this.bosses = bosses;
             this.items = items;
+            this.displayName = displayName;
+            this.displayColor = displayColor;
+            this.sortOrder = sortOrder;
         }
 
         public ResourceLocation getDimension() {
@@ -127,6 +142,18 @@ public class ClientRequirementsCache {
 
         public List<Item> getItems() {
             return items;
+        }
+        
+        public String getDisplayName() {
+            return displayName;
+        }
+        
+        public Integer getDisplayColor() {
+            return displayColor;
+        }
+        
+        public int getSortOrder() {
+            return sortOrder;
         }
     }
 }

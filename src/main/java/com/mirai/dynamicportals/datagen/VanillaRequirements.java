@@ -1,17 +1,21 @@
 package com.mirai.dynamicportals.datagen;
 
-import com.mirai.dynamicportals.compat.ModCompatibilityRegistry;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Static definitions for vanilla portal requirements.
- * Used by DataGen to generate advancements.
- * IMPORTANT: Must match the runtime requirements in PortalRequirementRegistry!
+ * Used by DataGen to generate advancement JSON files at build time.
+ * 
+ * IMPORTANT DESIGN NOTE:
+ * - Advancements generated here only reference VANILLA mobs/bosses
+ * - At runtime, PortalRequirementRegistry adds mod compatibility mobs on top of vanilla
+ * - The advancement trigger (KillRequirementTrigger) validates against the FULL runtime list
+ * - This means advancements track vanilla progress, but runtime enforces vanilla + mod compat
+ * - This is intentional: advancement JSONs are static, runtime requirements are dynamic
  */
 public class VanillaRequirements {
     
@@ -20,7 +24,8 @@ public class VanillaRequirements {
     
     public static class NetherRequirements {
         /**
-         * Get vanilla overworld mobs only (for backward compatibility)
+         * Get vanilla overworld mobs for advancement JSON generation.
+         * At runtime, PortalRequirementRegistry will add mod compatibility mobs on top.
          */
         public List<EntityType<?>> getMobs() {
             return List.of(
@@ -43,30 +48,16 @@ public class VanillaRequirements {
         }
         
         /**
-         * Get ALL mobs including mod compatibility mobs (matches runtime requirements)
-         */
-        public List<EntityType<?>> getAllMobs() {
-            List<EntityType<?>> allMobs = new ArrayList<>(getMobs());
-            allMobs.addAll(ModCompatibilityRegistry.getAllOverworldMobs());
-            return allMobs;
-        }
-        
-        /**
-         * Get vanilla bosses only
+         * Get vanilla overworld bosses for advancement JSON generation.
+         * At runtime, PortalRequirementRegistry will add mod compatibility bosses on top.
          */
         public List<EntityType<?>> getBosses() {
             return List.of(EntityType.ELDER_GUARDIAN);
         }
         
         /**
-         * Get ALL bosses including mod compatibility bosses (matches runtime requirements)
+         * Get required items for Nether portal access.
          */
-        public List<EntityType<?>> getAllBosses() {
-            List<EntityType<?>> allBosses = new ArrayList<>(getBosses());
-            allBosses.addAll(ModCompatibilityRegistry.getAllBosses());
-            return allBosses;
-        }
-        
         public List<Item> getItems() {
             return List.of(Items.DIAMOND);
         }
@@ -74,7 +65,8 @@ public class VanillaRequirements {
     
     public static class EndRequirements {
         /**
-         * Get vanilla nether mobs only (for backward compatibility)
+         * Get vanilla nether mobs for advancement JSON generation.
+         * At runtime, PortalRequirementRegistry will add mod compatibility mobs on top.
          */
         public List<EntityType<?>> getMobs() {
             return List.of(
@@ -88,30 +80,16 @@ public class VanillaRequirements {
         }
         
         /**
-         * Get ALL mobs including mod compatibility mobs (matches runtime requirements)
-         */
-        public List<EntityType<?>> getAllMobs() {
-            List<EntityType<?>> allMobs = new ArrayList<>(getMobs());
-            allMobs.addAll(ModCompatibilityRegistry.getAllNetherMobs());
-            return allMobs;
-        }
-        
-        /**
-         * Get vanilla bosses only
+         * Get vanilla nether bosses for advancement JSON generation.
+         * At runtime, PortalRequirementRegistry will add mod compatibility bosses on top.
          */
         public List<EntityType<?>> getBosses() {
             return List.of(EntityType.WARDEN, EntityType.WITHER);
         }
         
         /**
-         * Get ALL bosses including mod compatibility bosses (matches runtime requirements)
+         * Get required items for End portal access.
          */
-        public List<EntityType<?>> getAllBosses() {
-            List<EntityType<?>> allBosses = new ArrayList<>(getBosses());
-            allBosses.addAll(ModCompatibilityRegistry.getAllNetherBosses());
-            return allBosses;
-        }
-        
         public List<Item> getItems() {
             return List.of(Items.NETHERITE_INGOT);
         }

@@ -164,10 +164,19 @@ public class ProgressHUD {
             return;
         }
         
-        // Initialize ordered dimensions list (Nether first, then End)
+        // Initialize ordered dimensions list (sorted by custom sortOrder if configured)
         if (orderedDimensions == null || orderedDimensions.isEmpty()) {
             orderedDimensions = new ArrayList<>(allRequirements.keySet());
             orderedDimensions.sort((a, b) -> {
+                ClientRequirementsCache.CachedRequirement reqA = allRequirements.get(a);
+                ClientRequirementsCache.CachedRequirement reqB = allRequirements.get(b);
+                
+                // Use custom sort order if both have it configured
+                if (reqA.getSortOrder() != 0 || reqB.getSortOrder() != 0) {
+                    return Integer.compare(reqA.getSortOrder(), reqB.getSortOrder());
+                }
+                
+                // Fallback to default sorting (Nether first, then End)
                 if (a.getPath().contains("nether")) return -1;
                 if (b.getPath().contains("nether")) return 1;
                 if (a.getPath().contains("end")) return 1;
@@ -300,9 +309,14 @@ public class ProgressHUD {
         boolean isCompleted = totalCompleted == totalRequirements && achievementUnlocked;
         
         // Dimension title (optimized with StringBuilder)
-        String dimName = getDimensionName(req.getDimension());
+        // Use custom display name if configured, otherwise use default dimension name
+        String dimName = req.getDisplayName() != null ? req.getDisplayName() : getDimensionName(req.getDimension());
         String statusIcon = isCompleted ? "§a✔" : (achievementUnlocked ? "§e⚠" : "§c✘");
-        int dimColor = req.getDimension().getPath().contains("nether") ? 0xFFFF55 : 0xFF5555;
+        
+        // Use custom display color if configured, otherwise use dimension-based color
+        int dimColor = req.getDisplayColor() != null ? req.getDisplayColor() : 
+                      (req.getDimension().getPath().contains("nether") ? 0xFFFF55 : 0xFF5555);
+        
         StringBuilder dimTitleBuilder = new StringBuilder(50);
         dimTitleBuilder.append(statusIcon).append(" ").append(dimName);
         Component dimTitle = Component.literal(dimTitleBuilder.toString()).withStyle(style -> style.withBold(true));

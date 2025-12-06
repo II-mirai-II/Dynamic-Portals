@@ -49,7 +49,16 @@ public record SyncRequirementsPacket(
                     items.add(ResourceLocation.STREAM_CODEC.decode(buffer));
                 }
                 
-                map.put(dimension, new RequirementData(advancement, mobs, bosses, items));
+                // Decode display fields (nullable)
+                boolean hasDisplayName = ByteBufCodecs.BOOL.decode(buffer);
+                String displayName = hasDisplayName ? ByteBufCodecs.STRING_UTF8.decode(buffer) : null;
+                
+                boolean hasDisplayColor = ByteBufCodecs.BOOL.decode(buffer);
+                Integer displayColor = hasDisplayColor ? ByteBufCodecs.VAR_INT.decode(buffer) : null;
+                
+                int sortOrder = ByteBufCodecs.VAR_INT.decode(buffer);
+                
+                map.put(dimension, new RequirementData(advancement, mobs, bosses, items, displayName, displayColor, sortOrder));
             }
             
             return new SyncRequirementsPacket(map);
@@ -76,20 +85,42 @@ public record SyncRequirementsPacket(
                 // Encode mobs
                 ByteBufCodecs.VAR_INT.encode(buffer, data.mobs().size());
                 for (ResourceLocation mobId : data.mobs()) {
+                    if (mobId == null) {
+                        throw new IllegalStateException("Cannot encode null mob ResourceLocation");
+                    }
                     ResourceLocation.STREAM_CODEC.encode(buffer, mobId);
                 }
                 
                 // Encode bosses
                 ByteBufCodecs.VAR_INT.encode(buffer, data.bosses().size());
                 for (ResourceLocation bossId : data.bosses()) {
+                    if (bossId == null) {
+                        throw new IllegalStateException("Cannot encode null boss ResourceLocation");
+                    }
                     ResourceLocation.STREAM_CODEC.encode(buffer, bossId);
                 }
                 
                 // Encode items
                 ByteBufCodecs.VAR_INT.encode(buffer, data.items().size());
                 for (ResourceLocation itemId : data.items()) {
+                    if (itemId == null) {
+                        throw new IllegalStateException("Cannot encode null item ResourceLocation");
+                    }
                     ResourceLocation.STREAM_CODEC.encode(buffer, itemId);
                 }
+                
+                // Encode display fields (nullable)
+                ByteBufCodecs.BOOL.encode(buffer, data.displayName() != null);
+                if (data.displayName() != null) {
+                    ByteBufCodecs.STRING_UTF8.encode(buffer, data.displayName());
+                }
+                
+                ByteBufCodecs.BOOL.encode(buffer, data.displayColor() != null);
+                if (data.displayColor() != null) {
+                    ByteBufCodecs.VAR_INT.encode(buffer, data.displayColor());
+                }
+                
+                ByteBufCodecs.VAR_INT.encode(buffer, data.sortOrder());
             }
         }
     };
@@ -100,12 +131,16 @@ public record SyncRequirementsPacket(
     }
 
     /**
-     * Serializable requirement data using ResourceLocations instead of game objects
+     * Serializable requirement data using ResourceLocations instead of game objects.
+     * Includes display customization fields for HUD rendering.
      */
     public record RequirementData(
             ResourceLocation advancement,
             List<ResourceLocation> mobs,
             List<ResourceLocation> bosses,
-            List<ResourceLocation> items
+            List<ResourceLocation> items,
+            String displayName,
+            Integer displayColor,
+            int sortOrder
     ) {}
 }

@@ -160,6 +160,11 @@ public class PortalRequirement {
             return this;
         }
         
+        public Builder addItemsList(List<Item> items) {
+            this.requiredItems.addAll(items);
+            return this;
+        }
+        
         public Builder displayName(String name) {
             this.displayName = name;
             return this;

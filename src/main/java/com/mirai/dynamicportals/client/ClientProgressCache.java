@@ -86,11 +86,16 @@ public class ClientProgressCache {
         cacheValid = false;
     }
 
+    /**
+     * Clear all cached data. Called when player disconnects from server.
+     */
     public static void clear() {
         killedMobs.clear();
         obtainedItems.clear();
         unlockedAchievements.clear();
         cacheValid = false;
         killedMobIdsCache = null;
+        
+        DynamicPortals.LOGGER.debug("Client progress cache cleared");
     }
 }

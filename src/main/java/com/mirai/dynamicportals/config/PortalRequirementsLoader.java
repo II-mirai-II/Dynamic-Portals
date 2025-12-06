@@ -5,7 +5,9 @@ import com.google.gson.GsonBuilder;
 import com.mirai.dynamicportals.DynamicPortals;
 import com.mirai.dynamicportals.api.PortalRequirement;
 import com.mirai.dynamicportals.api.PortalRequirementRegistry;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.mirai.dynamicportals.compat.ModCompatibilityRegistry;
+import com.mirai.dynamicportals.util.ModConstants;
+import com.mirai.dynamicportals.util.RegistryUtils;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
@@ -57,6 +59,9 @@ public class PortalRequirementsLoader {
             DynamicPortals.LOGGER.info("Successfully loaded {} default portal requirement(s)", 
                 config.getPortals().size());
             
+            // Integrate mobs from loaded mod compatibility configs
+            integrateModCompatibilityMobs();
+            
         } catch (Exception e) {
             DynamicPortals.LOGGER.error("Failed to load portal requirements configuration", e);
             DynamicPortals.LOGGER.warn("Falling back to hardcoded requirements");
@@ -101,7 +106,7 @@ public class PortalRequirementsLoader {
         if (portalConfig.getRequirements() != null && portalConfig.getRequirements().getMobs() != null) {
             for (List<String> mobList : portalConfig.getRequirements().getMobs().values()) {
                 for (String mobId : mobList) {
-                    EntityType<?> entityType = parseEntityType(mobId);
+                    EntityType<?> entityType = RegistryUtils.parseEntityType(mobId);
                     if (entityType != null) {
                         builder.addMob(entityType);
                     }
@@ -112,7 +117,7 @@ public class PortalRequirementsLoader {
         // Process bosses
         if (portalConfig.getRequirements() != null && portalConfig.getRequirements().getBosses() != null) {
             for (String bossId : portalConfig.getRequirements().getBosses()) {
-                EntityType<?> entityType = parseEntityType(bossId);
+                EntityType<?> entityType = RegistryUtils.parseEntityType(bossId);
                 if (entityType != null) {
                     builder.addBoss(entityType);
                 }
@@ -122,7 +127,7 @@ public class PortalRequirementsLoader {
         // Process items
         if (portalConfig.getRequirements() != null && portalConfig.getRequirements().getItems() != null) {
             for (String itemId : portalConfig.getRequirements().getItems()) {
-                Item item = parseItem(itemId);
+                Item item = RegistryUtils.parseItem(itemId);
                 if (item != null) {
                     builder.addItem(item);
                 }
@@ -160,42 +165,83 @@ public class PortalRequirementsLoader {
     }
     
     /**
-     * Parse entity type from string ID
+     * Integrate mobs from ModCompatibilityRegistry into existing portal requirements.
+     * This adds mobs from detected mods (Mowzie's Mobs, Cataclysm, etc.) to the vanilla portals.
      */
-    private static EntityType<?> parseEntityType(String id) {
-        try {
-            ResourceLocation resourceLocation = ResourceLocation.parse(id);
-            
-            // Check if the entity type exists in the registry
-            if (!BuiltInRegistries.ENTITY_TYPE.containsKey(resourceLocation)) {
-                DynamicPortals.LOGGER.warn("Unknown entity type: {}", id);
-                return null;
-            }
-            
-            return BuiltInRegistries.ENTITY_TYPE.get(resourceLocation);
-        } catch (Exception e) {
-            DynamicPortals.LOGGER.error("Failed to parse entity type: {}", id, e);
-            return null;
+    private static void integrateModCompatibilityMobs() {
+        PortalRequirementRegistry registry = PortalRequirementRegistry.getInstance();
+        
+        // Get existing requirements
+        PortalRequirement netherReq = registry.getRequirement(ModConstants.NETHER_DIMENSION);
+        PortalRequirement endReq = registry.getRequirement(ModConstants.END_DIMENSION);
+        
+        if (netherReq == null || endReq == null) {
+            DynamicPortals.LOGGER.warn("Could not integrate mod compatibility - portal requirements not found");
+            return;
         }
-    }
-    
-    /**
-     * Parse item from string ID
-     */
-    private static Item parseItem(String id) {
-        try {
-            ResourceLocation resourceLocation = ResourceLocation.parse(id);
-            Item item = BuiltInRegistries.ITEM.get(resourceLocation);
+        
+        // Get mobs from loaded mod compatibility configs
+        List<EntityType<?>> overworldMobs = ModCompatibilityRegistry.getAllOverworldMobs();
+        List<EntityType<?>> netherMobs = ModCompatibilityRegistry.getAllNetherMobs();
+        List<EntityType<?>> bosses = ModCompatibilityRegistry.getAllBosses();
+        List<EntityType<?>> netherBosses = ModCompatibilityRegistry.getAllNetherBosses();
+        
+        int addedToNether = 0;
+        int addedToEnd = 0;
+        
+        // Integrate into Nether portal (overworld mobs + bosses)
+        if (!overworldMobs.isEmpty() || !bosses.isEmpty()) {
+            PortalRequirement.Builder netherBuilder = PortalRequirement.builder(ModConstants.NETHER_DIMENSION)
+                .advancement(netherReq.getRequiredAdvancement())
+                .displayName(netherReq.getDisplayName())
+                .displayDescription(netherReq.getDisplayDescription())
+                .displayColor(netherReq.getDisplayColor())
+                .displayIcon(netherReq.getDisplayIcon())
+                .sortOrder(netherReq.getSortOrder());
             
-            if (item == null) {
-                DynamicPortals.LOGGER.warn("Unknown item: {}", id);
-                return null;
-            }
+            // Add existing mobs, bosses, and items
+            netherBuilder.addMobsList(netherReq.getRequiredMobs());
+            netherBuilder.addBossesList(netherReq.getRequiredBosses());
+            netherBuilder.addItemsList(netherReq.getRequiredItems());
             
-            return item;
-        } catch (Exception e) {
-            DynamicPortals.LOGGER.error("Failed to parse item: {}", id, e);
-            return null;
+            // Add mod compatibility mobs
+            netherBuilder.addMobsList(overworldMobs);
+            netherBuilder.addBossesList(bosses);
+            
+            addedToNether = overworldMobs.size() + bosses.size();
+            
+            // Re-register with integrated mobs
+            registry.registerPortalRequirement(netherBuilder.build());
+        }
+        
+        // Integrate into End portal (nether mobs + nether bosses)
+        if (!netherMobs.isEmpty() || !netherBosses.isEmpty()) {
+            PortalRequirement.Builder endBuilder = PortalRequirement.builder(ModConstants.END_DIMENSION)
+                .advancement(endReq.getRequiredAdvancement())
+                .displayName(endReq.getDisplayName())
+                .displayDescription(endReq.getDisplayDescription())
+                .displayColor(endReq.getDisplayColor())
+                .displayIcon(endReq.getDisplayIcon())
+                .sortOrder(endReq.getSortOrder());
+            
+            // Add existing mobs, bosses, and items
+            endBuilder.addMobsList(endReq.getRequiredMobs());
+            endBuilder.addBossesList(endReq.getRequiredBosses());
+            endBuilder.addItemsList(endReq.getRequiredItems());
+            
+            // Add mod compatibility mobs
+            endBuilder.addMobsList(netherMobs);
+            endBuilder.addBossesList(netherBosses);
+            
+            addedToEnd = netherMobs.size() + netherBosses.size();
+            
+            // Re-register with integrated mobs
+            registry.registerPortalRequirement(endBuilder.build());
+        }
+        
+        if (addedToNether > 0 || addedToEnd > 0) {
+            DynamicPortals.LOGGER.info("Integrated mod compatibility: +{} entities to Nether, +{} entities to End",
+                addedToNether, addedToEnd);
         }
     }
 }

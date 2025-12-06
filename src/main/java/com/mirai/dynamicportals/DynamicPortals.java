@@ -42,6 +42,25 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Main mod class for Dynamic Portals.
+ * 
+ * This mod adds configurable requirements for accessing Nether and End portals.
+ * Requirements can include:
+ * - Killing specific mobs and bosses
+ * - Obtaining specific items
+ * - Custom advancements
+ * 
+ * Features:
+ * - Mod compatibility system for tracking mobs from other mods
+ * - Hot-reload via /dynamicportals reload command
+ * - Client-side HUD for tracking progress
+ * - Customizable display names, colors, and sort order
+ * - JSON-based configuration system
+ * 
+ * @author II-mirai-II
+ * @version 1.1.2
+ */
 @Mod(ModConstants.MOD_ID)
 public class DynamicPortals {
     public static final Logger LOGGER = LoggerFactory.getLogger(ModConstants.MOD_ID);
@@ -88,6 +107,9 @@ public class DynamicPortals {
 
     private void onServerStarting(final ServerStartingEvent event) {
         LOGGER.info("Server starting - loading mod compatibility...");
+        
+        // Register commands
+        com.mirai.dynamicportals.command.ModCommands.register(event.getServer().getCommands().getDispatcher());
         
         // Load mod compatibility configurations (entities are now registered)
         ModCompatibilityRegistry.loadCompatibilityConfigs();
@@ -138,7 +160,11 @@ public class DynamicPortals {
     }
     
     /**
-     * Create a packet containing all portal requirements for client synchronization
+     * Create a packet containing all portal requirements for client synchronization.
+     * Converts PortalRequirement objects to RequirementData records with ResourceLocations
+     * instead of game objects for network transmission.
+     * 
+     * @return SyncRequirementsPacket ready to send to clients
      */
     private SyncRequirementsPacket createRequirementsPacket() {
         Map<ResourceLocation, SyncRequirementsPacket.RequirementData> packetData = new HashMap<>();
@@ -178,7 +204,10 @@ public class DynamicPortals {
                 requirement.getRequiredAdvancement(),
                 mobIds,
                 bossIds,
-                itemIds
+                itemIds,
+                requirement.getDisplayName(),
+                requirement.getDisplayColor(),
+                requirement.getSortOrder()
             ));
         }
         
@@ -186,7 +215,11 @@ public class DynamicPortals {
     }
     
     /**
-     * Invalidate the cached requirements packet (used by reload command)
+     * Invalidate the cached requirements packet.
+     * Called by the reload command to force recreation of the packet with updated requirements.
+     * After invalidation, the next player login will trigger packet recreation.
+     * 
+     * @see ModCommands#reloadCommand for usage in reload command
      */
     public static void invalidateRequirementsCache() {
         cachedRequirementsPacket = null;

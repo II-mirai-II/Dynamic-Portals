@@ -6,7 +6,7 @@ import com.google.gson.JsonSyntaxException;
 import com.mirai.dynamicportals.DynamicPortals;
 import com.mirai.dynamicportals.api.PortalRequirement;
 import com.mirai.dynamicportals.api.PortalRequirementRegistry;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.mirai.dynamicportals.util.RegistryUtils;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
@@ -221,7 +221,7 @@ public class CustomPortalRequirementsLoader {
             if (portalConfig.getRequirements() != null && portalConfig.getRequirements().getMobs() != null) {
                 for (List<String> mobList : portalConfig.getRequirements().getMobs().values()) {
                     for (String mobId : mobList) {
-                        EntityType<?> entityType = parseEntityType(mobId);
+                        EntityType<?> entityType = RegistryUtils.parseEntityType(mobId);
                         if (entityType != null) {
                             builder.addMob(entityType);
                         }
@@ -232,7 +232,7 @@ public class CustomPortalRequirementsLoader {
             // Bosses
             if (portalConfig.getRequirements() != null && portalConfig.getRequirements().getBosses() != null) {
                 for (String bossId : portalConfig.getRequirements().getBosses()) {
-                    EntityType<?> entityType = parseEntityType(bossId);
+                    EntityType<?> entityType = RegistryUtils.parseEntityType(bossId);
                     if (entityType != null) {
                         builder.addBoss(entityType);
                     }
@@ -242,7 +242,7 @@ public class CustomPortalRequirementsLoader {
             // Items
             if (portalConfig.getRequirements() != null && portalConfig.getRequirements().getItems() != null) {
                 for (String itemId : portalConfig.getRequirements().getItems()) {
-                    Item item = parseItem(itemId);
+                    Item item = RegistryUtils.parseItem(itemId);
                     if (item != null) {
                         builder.addItem(item);
                     }
@@ -282,46 +282,6 @@ public class CustomPortalRequirementsLoader {
         } catch (Exception e) {
             DynamicPortals.LOGGER.error("Failed to register custom portal: {}", dimensionId, e);
             return false;
-        }
-    }
-    
-    /**
-     * Parse entity type from string ID
-     */
-    private static EntityType<?> parseEntityType(String id) {
-        try {
-            ResourceLocation rl = ResourceLocation.parse(id);
-            
-            // Check if the entity type exists in the registry
-            if (!BuiltInRegistries.ENTITY_TYPE.containsKey(rl)) {
-                DynamicPortals.LOGGER.warn("Unknown entity type in config: {}", id);
-                return null;
-            }
-            
-            return BuiltInRegistries.ENTITY_TYPE.get(rl);
-        } catch (Exception e) {
-            DynamicPortals.LOGGER.error("Failed to parse entity type: {}", id, e);
-            return null;
-        }
-    }
-    
-    /**
-     * Parse item from string ID
-     */
-    private static Item parseItem(String id) {
-        try {
-            ResourceLocation rl = ResourceLocation.parse(id);
-            Item item = BuiltInRegistries.ITEM.get(rl);
-            
-            if (item == null) {
-                DynamicPortals.LOGGER.warn("Unknown item in config: {}", id);
-                return null;
-            }
-            
-            return item;
-        } catch (Exception e) {
-            DynamicPortals.LOGGER.error("Failed to parse item: {}", id, e);
-            return null;
         }
     }
 }
