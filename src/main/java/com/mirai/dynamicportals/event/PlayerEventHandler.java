@@ -27,15 +27,37 @@ public class PlayerEventHandler {
             Player original = event.getOriginal();
             Player newPlayer = event.getEntity();
 
-            // Copy data from old player to new player
-            PlayerProgressData oldData = original.getData(ModAttachments.PLAYER_PROGRESS);
-            PlayerProgressData newData = newPlayer.getData(ModAttachments.PLAYER_PROGRESS);
-            
-            newData.copyFrom(oldData);
-
-            // Sync to client if on server
+            // Sync progress data when player respawns after death
             if (newPlayer instanceof ServerPlayer serverPlayer) {
-                PacketDistributor.sendToPlayer(serverPlayer, SyncProgressPacket.fromProgressData(newData));
+                if (ModConfig.isGlobalProgressEnabled()) {
+                    // GLOBAL MODE: Sync from GlobalProgressData (shared progress)
+                    // Do NOT copy individual attachment data as it may be stale
+                    IProgressData globalData = GlobalProgressManager.getProgressData(serverPlayer);
+                    PacketDistributor.sendToPlayer(serverPlayer, SyncProgressPacket.fromProgressData(globalData));
+                    
+                    if (ModConfig.COMMON.debugLogging.get()) {
+                        DynamicPortals.LOGGER.debug("Player {} respawned in GLOBAL mode - syncing GlobalProgressData (mobs: {}, items: {}, achievements: {})", 
+                            serverPlayer.getName().getString(),
+                            globalData.getKilledMobs().size(),
+                            globalData.getObtainedItems().size(),
+                            globalData.getUnlockedAchievements().size());
+                    }
+                } else {
+                    // INDIVIDUAL MODE: Copy PlayerProgressData from old to new player entity
+                    PlayerProgressData oldData = original.getData(ModAttachments.PLAYER_PROGRESS);
+                    PlayerProgressData newData = serverPlayer.getData(ModAttachments.PLAYER_PROGRESS);
+                    
+                    newData.copyFrom(oldData);
+                    PacketDistributor.sendToPlayer(serverPlayer, SyncProgressPacket.fromProgressData(newData));
+                    
+                    if (ModConfig.COMMON.debugLogging.get()) {
+                        DynamicPortals.LOGGER.debug("Player {} respawned in INDIVIDUAL mode - copied PlayerProgressData (mobs: {}, items: {}, achievements: {})", 
+                            serverPlayer.getName().getString(),
+                            newData.getKilledMobs().size(),
+                            newData.getObtainedItems().size(),
+                            newData.getUnlockedAchievements().size());
+                    }
+                }
             }
         }
     }
