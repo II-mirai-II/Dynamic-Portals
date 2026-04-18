@@ -31,6 +31,13 @@ The mod offers a complete system of configurable requirements (kill mobs, collec
 - Public unlock announcements
 - Fully configurable
 
+### 🧭 Progress + Party Hub (New in 2.1.0)
+- Moved from chat-only flow to a dedicated in-game Hub UI
+- Two focused tabs: Progress and Party
+- Portal cards with status, summaries, and requirement details
+- Built-in party actions (create, join, leave, dissolve) with live feedback
+- Responsive layout designed for different GUI scales and window sizes
+
 ### 🎮 Intuitive Commands
 ```bash
 /dp check               # View your progress

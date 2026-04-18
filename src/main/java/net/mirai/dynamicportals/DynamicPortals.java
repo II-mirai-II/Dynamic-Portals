@@ -6,6 +6,7 @@ import net.mirai.dynamicportals.config.DynamicPortalsConfig;
 import net.mirai.dynamicportals.config.PortalRules;
 import net.mirai.dynamicportals.events.ProgressEvents;
 import net.mirai.dynamicportals.item.ModItems;
+import net.mirai.dynamicportals.network.HubNetworkHandler;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -23,6 +24,7 @@ public class DynamicPortals {
         ModItems.register(modEventBus);
         modEventBus.addListener(PortalRules::onConfigLoading);
         modEventBus.addListener(PortalRules::onConfigReloading);
+        modEventBus.addListener(HubNetworkHandler::register);
 
         NeoForge.EVENT_BUS.register(new ProgressEvents());
         NeoForge.EVENT_BUS.register(new ModCommands());

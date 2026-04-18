@@ -5,6 +5,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.mirai.dynamicportals.config.DynamicPortalsConfig;
+import net.mirai.dynamicportals.network.PortalOverlayPayload;
 import net.mirai.dynamicportals.party.PartyData;
 import net.mirai.dynamicportals.party.PartyStore;
 import net.mirai.dynamicportals.util.DisplayText;
@@ -16,9 +17,11 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 public final class ProgressNotifier {
     private static final long PARTY_BROADCAST_DEDUPE_MS = 1000L;
+    private static final int BLOCKED_OVERLAY_TICKS = 60;
     private static final Map<String, Long> RECENT_PARTY_COMPLETIONS = new ConcurrentHashMap<>();
 
     private ProgressNotifier() {
@@ -106,8 +109,15 @@ public final class ProgressNotifier {
             return;
         }
 
-        player.sendSystemMessage(Component.translatable("dynamicportals.chat.portal_blocked", DisplayText.dimension(dimension), dimension)
-            .withStyle(ChatFormatting.RED));
+        PacketDistributor.sendToPlayer(
+            player,
+            new PortalOverlayPayload(
+                "dynamicportals.overlay.portal_blocked",
+                DisplayText.dimension(dimension),
+                dimension,
+                BLOCKED_OVERLAY_TICKS
+            )
+        );
     }
 
     public static void bypassUnlocked(ServerPlayer player, String dimension, String itemId) {

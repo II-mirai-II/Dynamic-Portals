@@ -377,7 +377,9 @@ Created: 2026-04-16
 4. **Requirement Evaluation** → `RequirementEngine` validates if requirement was completed
 5. **Broadcast** → If in party, `ProgressNotifier` sends message to all members
 6. **Chat Feedback** → Player receives: `✓ Requirement complete! [Kill Zombie]`
-7. **Sound Effect** → (If `enableSuccessSound = true`) Plays "level up" sound
+7. **Hub Snapshot Sync** → Server builds a live snapshot (`HubSnapshotBuilder`) and sends it to clients.
+8. **Progress + Party Hub Render** → Client screen reads synced state and shows Progress/Party data in a dedicated GUI.
+9. **Sound Effect** → (If `enableSuccessSound = true`) Plays "level up" sound
 
 ### Data Persistence
 
@@ -406,6 +408,20 @@ parties: [
   }
 ]
 ```
+
+### Progress + Party Hub (Client-Side)
+
+Version 2.1.0 introduces a dedicated in-game Hub that upgrades the experience from command-only interaction to a focused visual interface.
+
+- **Primary goal**: Make progression and party management faster and easier for players.
+- **Main tabs**: Progress and Party in a single screen.
+- **Network flow**: `HubRequestPayload` (client requests) + `HubStatePayload` (server snapshot response).
+- **Server builder**: `HubSnapshotBuilder` composes portal status, requirement summaries, and party data.
+- **Client state**: `HubClientState` stores synchronized snapshot data for rendering.
+- **Runtime integration**: `ClientRuntimeHooks` handles keybind open, periodic refresh, and UI synchronization.
+- **UI behavior**: Pagination, detail modal, party actions, and responsive layout for different viewport sizes.
+
+Current scope: the Hub is the central UX layer for Progress + Party workflows, while commands remain available as a fallback and power-user path.
 
 ### Party Aggregation (How sharing works)
 
