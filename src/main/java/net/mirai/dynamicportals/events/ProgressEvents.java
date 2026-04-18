@@ -38,7 +38,6 @@ public class ProgressEvents {
             }
 
             int current = ProgressStore.addKill(player, definition.destinationDimension(), entityId, 1);
-            ProgressNotifier.progress(player, "kill", entityId, current, required);
             completeRequirementIfNeeded(player, definition.destinationDimension(), "kill", entityId, current, required);
             unlockPortalIfReady(player, definition);
         }
@@ -64,7 +63,6 @@ public class ProgressEvents {
                 if (inventoryCount > snapshot) {
                     int gained = inventoryCount - snapshot;
                     int current = ProgressStore.addItem(player, definition.destinationDimension(), itemId, gained);
-                    ProgressNotifier.progress(player, "item", itemId, current, required);
                     completeRequirementIfNeeded(player, definition.destinationDimension(), "item", itemId, current, required);
                     unlockPortalIfReady(player, definition);
                 }
@@ -91,7 +89,6 @@ public class ProgressEvents {
                 continue;
             }
 
-            ProgressNotifier.progress(player, "adv", advancementId, 1, 1);
             completeRequirementIfNeeded(player, definition.destinationDimension(), "adv", advancementId, 1, 1);
             unlockPortalIfReady(player, definition);
         }

@@ -21,6 +21,8 @@ import net.minecraft.server.level.ServerPlayer;
 
 public final class HubSnapshotBuilder {
     private static final int PREVIEW_LIMIT = 3;
+    private static final String DIMENSION_NETHER = "minecraft:the_nether";
+    private static final String DIMENSION_END = "minecraft:the_end";
 
     private HubSnapshotBuilder() {
     }
@@ -42,7 +44,7 @@ public final class HubSnapshotBuilder {
         progress.putBoolean("in_party", inParty);
 
         List<PortalHubState> states = new ArrayList<>();
-        for (PortalDefinition definition : PortalRules.all()) {
+        for (PortalDefinition definition : orderDefinitionsForHub(PortalRules.all())) {
             RequirementEngine.PortalStatus individualStatus = RequirementEngine.evaluate(player, definition);
             RequirementEngine.PortalStatus partyStatus = inParty
                 ? RequirementEngine.evaluateParty(player, definition)
@@ -73,12 +75,6 @@ public final class HubSnapshotBuilder {
                 effectiveStatus
             ));
         }
-
-        states.sort(Comparator
-            .comparingInt((PortalHubState state) -> state.effectiveStatus().unlocked() ? 1 : 0)
-            .thenComparingInt(state -> state.effectiveStatus().missingEntries().size())
-            .thenComparing(state -> state.definition().destinationDimension())
-        );
 
         ListTag portalList = new ListTag();
         for (PortalHubState state : states) {
@@ -280,6 +276,36 @@ public final class HubSnapshotBuilder {
             return new PortalVisualState("dynamicportals.command.check.status.unlocked_by_party", 0xFF3F3FFF);
         }
         return new PortalVisualState("dynamicportals.command.check.status.blocked", 0xFFFF5555);
+    }
+
+    private static List<PortalDefinition> orderDefinitionsForHub(Iterable<PortalDefinition> source) {
+        List<PortalDefinition> ordered = new ArrayList<>();
+        List<PortalDefinition> remaining = new ArrayList<>();
+
+        PortalDefinition nether = null;
+        PortalDefinition end = null;
+
+        for (PortalDefinition definition : source) {
+            String dimension = definition.destinationDimension();
+            if (DIMENSION_NETHER.equals(dimension) && nether == null) {
+                nether = definition;
+                continue;
+            }
+            if (DIMENSION_END.equals(dimension) && end == null) {
+                end = definition;
+                continue;
+            }
+            remaining.add(definition);
+        }
+
+        if (nether != null) {
+            ordered.add(nether);
+        }
+        if (end != null) {
+            ordered.add(end);
+        }
+        ordered.addAll(remaining);
+        return ordered;
     }
 
     private static String buildMissingPreview(List<String> missingEntries) {

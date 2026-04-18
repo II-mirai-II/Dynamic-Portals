@@ -476,13 +476,6 @@ public class DynamicPortalsHubScreen extends Screen {
                 ? Component.translatable("dynamicportals.command.check.compact_clear")
                 : Component.translatable("dynamicportals.command.check.compact_missing", preview);
             drawEllipsizedString(graphics, previewLine, textX, textY, textMaxWidth, preview.isBlank() ? 0xFF66CC66 : 0xFFFFFF55);
-            textY += this.font.lineHeight + 2;
-
-            Component originLine = Component.translatable(
-                "dynamicportals.ui.progress.origin",
-                Component.translatable(portal.getString("status_key"))
-            );
-            drawEllipsizedString(graphics, originLine, textX, textY, textMaxWidth, 0xFF9AA8FF);
 
             slot++;
         }
@@ -655,17 +648,9 @@ public class DynamicPortalsHubScreen extends Screen {
         );
         graphics.hLine(layout.modalLeft, layout.modalRight - 1, layout.modalTop + this.font.lineHeight + 12, 0x553A3A3A);
 
-        Component originLine = Component.translatable(
-            "dynamicportals.ui.progress.origin",
-            Component.translatable(portal.getString("status_key"))
-        );
-
         int textMaxWidth = layout.modalRight - layout.modalLeft - 20;
         int lineStep = this.font.lineHeight + 2;
         int lineY = layout.modalTop + 24;
-
-        drawEllipsizedString(graphics, originLine, layout.modalLeft + 10, lineY, textMaxWidth, 0xFF9AA8FF);
-        lineY += lineStep;
 
         boolean hasBypassBanner = portal.getBoolean("bypass_banner");
         if (hasBypassBanner) {
@@ -838,11 +823,18 @@ public class DynamicPortalsHubScreen extends Screen {
         boolean progressTab = this.activeTab == HubTab.PROGRESS;
         boolean detailsOpen = isDetailsOpen();
 
+        CompoundTag progress = state.getCompound("progress");
+        ListTag portals = progress.getList("portals", Tag.TAG_COMPOUND);
+        int totalPages = getProgressPages(portals, layout.progressCardsPerPage);
+        this.progressPage = Math.max(0, Math.min(this.progressPage, totalPages - 1));
+        int currentPageStart = this.progressPage * layout.progressCardsPerPage;
+        int visibleProgressCards = Math.max(0, Math.min(layout.progressCardsPerPage, portals.size() - currentPageStart));
+
         this.progressPrevButton.visible = progressTab && !detailsOpen;
         this.progressNextButton.visible = progressTab && !detailsOpen;
 
         for (int i = 0; i < this.progressDetailButtons.length; i++) {
-            this.progressDetailButtons[i].visible = progressTab && !detailsOpen && i < layout.progressCardsPerPage;
+            this.progressDetailButtons[i].visible = progressTab && !detailsOpen && i < visibleProgressCards;
         }
 
         this.detailsCloseButton.visible = progressTab && detailsOpen;
@@ -1053,7 +1045,7 @@ public class DynamicPortalsHubScreen extends Screen {
 
     private int getDetailsRequirementsPerPage(HubLayout layout, boolean hasBypassBanner) {
         int lineStep = this.font.lineHeight + 2;
-        int contentStartY = layout.modalTop + 24 + lineStep + (hasBypassBanner ? lineStep : 0);
+        int contentStartY = layout.modalTop + 24 + (hasBypassBanner ? lineStep : 0);
         int contentEndY = layout.modalBottom - 26;
         int usableHeight = contentEndY - contentStartY;
         int perPage = usableHeight / lineStep;

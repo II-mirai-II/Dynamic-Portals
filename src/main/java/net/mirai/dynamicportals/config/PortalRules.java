@@ -2,6 +2,7 @@ package net.mirai.dynamicportals.config;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -57,7 +58,7 @@ public final class PortalRules {
             built.put(entry.getKey(), new PortalDefinition(entry.getKey(), value.kills, value.items, value.advancements, value.bypassItems));
         }
 
-        definitions = Map.copyOf(built);
+        definitions = Collections.unmodifiableMap(new LinkedHashMap<>(built));
         DynamicPortals.LOGGER.info(
             "Loaded {} portal rule set(s) from config (kills={}, items={}, advancements={}, bypass={}).",
             definitions.size(),
