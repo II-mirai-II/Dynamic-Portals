@@ -24,9 +24,9 @@ public final class PartyStore {
      * Create a new party. The creator is automatically added as the first member.
      * Returns the party ID.
      */
-    public static UUID createParty(ServerPlayer creator, String password, String alias) {
+    public static UUID createParty(ServerPlayer creator) {
         PartyData data = getPartyData(creator);
-        return data.createParty(creator.getUUID(), password, alias);
+        return data.createParty(creator.getUUID());
     }
 
     /**
@@ -38,12 +38,12 @@ public final class PartyStore {
     }
 
     /**
-     * Add a player to an existing party with a password.
+     * Add a player to an existing party.
      * Returns true if successful.
      */
-    public static boolean joinParty(ServerPlayer player, UUID partyId, String password) {
+    public static boolean joinParty(ServerPlayer player, UUID partyId) {
         PartyData data = getPartyData(player);
-        return data.addMember(partyId, player.getUUID(), password);
+        return data.addMember(partyId, player.getUUID());
     }
 
     /**
@@ -59,7 +59,7 @@ public final class PartyStore {
     }
 
     /**
-     * Get all online members of a party.
+     * Get all members of a party, including offline members.
      */
     public static Set<UUID> getPartyMembers(Level level, UUID partyId) {
         PartyData data = PartyData.get(level);
@@ -111,5 +111,55 @@ public final class PartyStore {
     public static String getPartyAlias(ServerPlayer player, UUID partyId) {
         PartyData data = getPartyData(player);
         return data.getPartyAlias(partyId);
+    }
+
+    public static int addPartyKill(ServerPlayer player, UUID partyId, String dimension, String entityId, int amount) {
+        PartyData data = getPartyData(player);
+        return data.addPartyKill(partyId, dimension, entityId, amount);
+    }
+
+    public static int getPartyKillCount(ServerPlayer player, UUID partyId, String dimension, String entityId) {
+        PartyData data = getPartyData(player);
+        return data.getPartyKillCount(partyId, dimension, entityId);
+    }
+
+    public static int addPartyItem(ServerPlayer player, UUID partyId, String dimension, String itemId, int amount) {
+        PartyData data = getPartyData(player);
+        return data.addPartyItem(partyId, dimension, itemId, amount);
+    }
+
+    public static int getPartyItemCount(ServerPlayer player, UUID partyId, String dimension, String itemId) {
+        PartyData data = getPartyData(player);
+        return data.getPartyItemCount(partyId, dimension, itemId);
+    }
+
+    public static boolean markPartyAdvancement(ServerPlayer player, UUID partyId, String dimension, String advancementId) {
+        PartyData data = getPartyData(player);
+        return data.markPartyAdvancement(partyId, dimension, advancementId);
+    }
+
+    public static boolean hasPartyAdvancement(ServerPlayer player, UUID partyId, String dimension, String advancementId) {
+        PartyData data = getPartyData(player);
+        return data.hasPartyAdvancement(partyId, dimension, advancementId);
+    }
+
+    public static boolean isPartyRequirementCompleted(ServerPlayer player, UUID partyId, String requirementKey) {
+        PartyData data = getPartyData(player);
+        return data.isPartyRequirementCompleted(partyId, requirementKey);
+    }
+
+    public static void markPartyRequirementCompleted(ServerPlayer player, UUID partyId, String requirementKey) {
+        PartyData data = getPartyData(player);
+        data.markPartyRequirementCompleted(partyId, requirementKey);
+    }
+
+    public static boolean resetPartyProgress(ServerPlayer player, UUID partyId) {
+        PartyData data = getPartyData(player);
+        return data.resetPartyProgress(partyId);
+    }
+
+    public static boolean resetPartyProgressForDimension(ServerPlayer player, UUID partyId, String dimension) {
+        PartyData data = getPartyData(player);
+        return data.resetPartyProgressForDimension(partyId, dimension);
     }
 }

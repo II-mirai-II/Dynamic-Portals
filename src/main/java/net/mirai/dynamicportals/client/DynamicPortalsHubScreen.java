@@ -2,9 +2,11 @@ package net.mirai.dynamicportals.client;
 
 import java.util.ArrayList;
 import java.util.List;
+import net.mirai.dynamicportals.DynamicPortals;
 import net.mirai.dynamicportals.network.HubClientState;
 import net.mirai.dynamicportals.network.HubNetworkHandler;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -12,6 +14,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import org.lwjgl.glfw.GLFW;
 
 public class DynamicPortalsHubScreen extends Screen {
@@ -22,10 +25,17 @@ public class DynamicPortalsHubScreen extends Screen {
     private static final int FIELD_HEIGHT = 20;
     private static final int MIN_MODAL_WIDTH = 280;
     private static final int MAX_MODAL_WIDTH = 420;
+    private static final int KILL_HEAD_RENDER_SIZE = 18;
+    private static final int KILL_HEAD_SOURCE_SIZE = 32;
+    private static final int DETAILS_ROW_HEIGHT = 22;
+    private static final float TITLE_SCALE = 1.75F;
 
     private static final int COLOR_PANEL = 0xAA1A1A1A;
-    private static final int COLOR_CARD = 0xAA242424;
+    private static final int COLOR_CARD = 0xC0242424;
+    private static final int COLOR_CARD_INNER = 0x662F2F2F;
     private static final int COLOR_BORDER = 0xAA3A3A3A;
+    private static final int COLOR_PROGRESS_TRACK = 0xAA111111;
+    private static final int COLOR_PROGRESS_EMPTY = 0x553A3A3A;
 
     private enum HubTab {
         PROGRESS,
@@ -43,23 +53,18 @@ public class DynamicPortalsHubScreen extends Screen {
 
     private Button progressPrevButton;
     private Button progressNextButton;
-    private Button globalRefreshButton;
 
     private final Button[] progressDetailButtons = new Button[MAX_PROGRESS_PORTALS_PER_PAGE];
     private Button detailsCloseButton;
     private Button detailsPrevPageButton;
     private Button detailsNextPageButton;
 
-    private EditBox createPasswordBox;
-    private EditBox createAliasBox;
     private EditBox joinCodeBox;
-    private EditBox joinPasswordBox;
 
     private Button createPartyButton;
     private Button joinPartyButton;
     private Button leavePartyButton;
     private Button dissolvePartyButton;
-    private Button partyRefreshButton;
 
     private boolean confirmLeave;
     private boolean confirmDissolve;
@@ -84,8 +89,6 @@ public class DynamicPortalsHubScreen extends Screen {
         final int progressCardWidth;
         final int progressCardsPerPage;
         final int progressNavY;
-
-        final int globalRefreshY;
 
         final int partyPanelTop;
         final int partyPanelBottom;
@@ -116,7 +119,6 @@ public class DynamicPortalsHubScreen extends Screen {
             int progressCardWidth,
             int progressCardsPerPage,
             int progressNavY,
-            int globalRefreshY,
             int partyPanelTop,
             int partyPanelBottom,
             int partyLeftPanelLeft,
@@ -144,7 +146,6 @@ public class DynamicPortalsHubScreen extends Screen {
             this.progressCardWidth = progressCardWidth;
             this.progressCardsPerPage = progressCardsPerPage;
             this.progressNavY = progressNavY;
-            this.globalRefreshY = globalRefreshY;
             this.partyPanelTop = partyPanelTop;
             this.partyPanelBottom = partyPanelBottom;
             this.partyLeftPanelLeft = partyLeftPanelLeft;
@@ -167,10 +168,7 @@ public class DynamicPortalsHubScreen extends Screen {
 
     @Override
     protected void init() {
-        String createPasswordValue = this.createPasswordBox != null ? this.createPasswordBox.getValue() : "";
-        String createAliasValue = this.createAliasBox != null ? this.createAliasBox.getValue() : "";
         String joinCodeValue = this.joinCodeBox != null ? this.joinCodeBox.getValue() : "";
-        String joinPasswordValue = this.joinPasswordBox != null ? this.joinPasswordBox.getValue() : "";
 
         super.init();
 
@@ -185,11 +183,6 @@ public class DynamicPortalsHubScreen extends Screen {
             Component.translatable("dynamicportals.ui.tab.party"),
             button -> switchTab(HubTab.PARTY)
         ).bounds(0, top, 148, BUTTON_HEIGHT).build());
-
-        this.globalRefreshButton = this.addRenderableWidget(Button.builder(
-            Component.translatable("dynamicportals.ui.button.refresh"),
-            button -> HubNetworkHandler.requestRefreshFromClient()
-        ).bounds(0, this.height - 26, 100, BUTTON_HEIGHT).build());
 
         this.progressPrevButton = this.addRenderableWidget(Button.builder(
             Component.translatable("dynamicportals.ui.button.prev"),
@@ -224,26 +217,6 @@ public class DynamicPortalsHubScreen extends Screen {
             button -> detailsRequirementsPage = detailsRequirementsPage + 1
         ).bounds(0, this.height - 94, 80, BUTTON_HEIGHT).build());
 
-        this.createPasswordBox = this.addRenderableWidget(new EditBox(
-            this.font,
-            0,
-            0,
-            180,
-            FIELD_HEIGHT,
-            Component.translatable("dynamicportals.ui.party.create.password")
-        ));
-        this.createPasswordBox.setMaxLength(32);
-
-        this.createAliasBox = this.addRenderableWidget(new EditBox(
-            this.font,
-            0,
-            0,
-            180,
-            FIELD_HEIGHT,
-            Component.translatable("dynamicportals.ui.party.create.alias")
-        ));
-        this.createAliasBox.setMaxLength(24);
-
         this.joinCodeBox = this.addRenderableWidget(new EditBox(
             this.font,
             0,
@@ -254,25 +227,12 @@ public class DynamicPortalsHubScreen extends Screen {
         ));
         this.joinCodeBox.setMaxLength(64);
 
-        this.joinPasswordBox = this.addRenderableWidget(new EditBox(
-            this.font,
-            0,
-            0,
-            180,
-            FIELD_HEIGHT,
-            Component.translatable("dynamicportals.ui.party.join.password")
-        ));
-        this.joinPasswordBox.setMaxLength(32);
-
         this.createPartyButton = this.addRenderableWidget(Button.builder(
             Component.translatable("dynamicportals.ui.button.create_party"),
             button -> {
                 confirmLeave = false;
                 confirmDissolve = false;
-                HubNetworkHandler.requestPartyCreateFromClient(
-                    createPasswordBox.getValue().trim(),
-                    createAliasBox.getValue().trim()
-                );
+                HubNetworkHandler.requestPartyCreateFromClient();
             }
         ).bounds(0, 0, 180, BUTTON_HEIGHT).build());
 
@@ -282,8 +242,7 @@ public class DynamicPortalsHubScreen extends Screen {
                 confirmLeave = false;
                 confirmDissolve = false;
                 HubNetworkHandler.requestPartyJoinFromClient(
-                    joinCodeBox.getValue().trim(),
-                    joinPasswordBox.getValue().trim()
+                    joinCodeBox.getValue().trim()
                 );
             }
         ).bounds(0, 0, 180, BUTTON_HEIGHT).build());
@@ -314,15 +273,7 @@ public class DynamicPortalsHubScreen extends Screen {
             }
         ).bounds(0, this.height - 78, 180, BUTTON_HEIGHT).build());
 
-        this.partyRefreshButton = this.addRenderableWidget(Button.builder(
-            Component.translatable("dynamicportals.ui.button.refresh_party"),
-            button -> HubNetworkHandler.requestRefreshFromClient()
-        ).bounds(0, this.height - 52, 120, BUTTON_HEIGHT).build());
-
-        this.createPasswordBox.setValue(createPasswordValue);
-        this.createAliasBox.setValue(createAliasValue);
         this.joinCodeBox.setValue(joinCodeValue);
-        this.joinPasswordBox.setValue(joinPasswordValue);
 
         applyLayoutToWidgets();
         cacheViewportState();
@@ -383,9 +334,15 @@ public class DynamicPortalsHubScreen extends Screen {
         super.render(graphics, mouseX, mouseY, partialTick);
 
         HubLayout layout = computeLayout();
-        graphics.drawCenteredString(this.font, this.title, layout.centerX, layout.titleY, 0xFFFFFF);
-
         CompoundTag state = HubClientState.snapshot();
+
+        if (isDetailsOpen()) {
+            renderProgressDetailsModal(graphics, state, layout);
+            renderDetailsWidgets(graphics, mouseX, mouseY, partialTick);
+            return;
+        }
+
+        renderMainTitle(graphics, layout);
         renderFeedback(graphics, state, layout);
 
         if (this.activeTab == HubTab.PROGRESS) {
@@ -394,9 +351,15 @@ public class DynamicPortalsHubScreen extends Screen {
             renderPartyTab(graphics, state, layout);
         }
 
-        if (isDetailsOpen()) {
-            renderProgressDetailsModal(graphics, state, layout);
-        }
+        renderMainWidgets(graphics, mouseX, mouseY, partialTick);
+    }
+
+    private void renderMainTitle(GuiGraphics graphics, HubLayout layout) {
+        drawScaledCenteredString(graphics, this.title, layout.centerX, layout.titleY, TITLE_SCALE, 0xFFFFFFFF);
+        int lineY = layout.titleY + Math.round(this.font.lineHeight * TITLE_SCALE) + 6;
+        int lineWidth = Math.min(190, Math.max(96, this.width - 48));
+        graphics.hLine(layout.centerX - lineWidth / 2, layout.centerX + lineWidth / 2, lineY, 0x9955FFFF);
+        graphics.hLine(layout.centerX - lineWidth / 4, layout.centerX + lineWidth / 4, lineY + 2, 0x6655FF55);
     }
 
     private void renderFeedback(GuiGraphics graphics, CompoundTag state, HubLayout layout) {
@@ -451,15 +414,18 @@ public class DynamicPortalsHubScreen extends Screen {
             int cardBottom = cardTop + CARD_HEIGHT;
 
             drawPanel(graphics, cardLeft, cardTop, cardRight, cardBottom, COLOR_CARD, COLOR_BORDER);
+            graphics.fill(cardLeft + 1, cardTop + 1, cardLeft + 4, cardBottom - 1, portal.getInt("status_color"));
+            graphics.fill(cardLeft + 6, cardTop + 5, cardRight - 6, cardBottom - 5, COLOR_CARD_INNER);
 
-            Component portalLine = Component.literal(portal.getString("display_name") + " -> ")
-                .append(Component.translatable(portal.getString("status_key")));
-            int textX = cardLeft + 8;
-            int textMaxWidth = layout.progressCardWidth - 16;
-            int textY = cardTop + 6;
+            int detailsReserve = Math.max(82, layout.progressCardWidth / 4) + 10;
+            int textX = cardLeft + 12;
+            int textMaxWidth = Math.max(40, layout.progressCardWidth - detailsReserve - 20);
+            int titleCenterX = textX + (textMaxWidth / 2);
+            int textY = cardTop + 11;
 
-            drawEllipsizedString(graphics, portalLine, textX, textY, textMaxWidth, portal.getInt("status_color"));
-            textY += this.font.lineHeight + 2;
+            Component portalLine = Component.literal(portalCardTitle(portal));
+            drawCenteredEllipsizedString(graphics, portalLine, titleCenterX, textY, textMaxWidth, portal.getInt("status_color"));
+            textY += this.font.lineHeight + 4;
 
             Component summaryLine = Component.translatable(
                 "dynamicportals.command.check.compact_summary",
@@ -469,7 +435,18 @@ public class DynamicPortalsHubScreen extends Screen {
                 portal.getInt("missing_count")
             );
             drawEllipsizedString(graphics, summaryLine, textX, textY, textMaxWidth, 0xFFB0B0B0);
-            textY += this.font.lineHeight + 2;
+            textY += this.font.lineHeight + 3;
+
+            drawProgressBar(
+                graphics,
+                textX,
+                textY,
+                textX + textMaxWidth,
+                textY + 5,
+                portal.getInt("percent"),
+                portal.getInt("status_color")
+            );
+            textY += 7;
 
             String preview = portal.getString("missing_preview");
             Component previewLine = preview.isBlank()
@@ -486,58 +463,40 @@ public class DynamicPortalsHubScreen extends Screen {
         boolean inParty = party.getBoolean("in_party");
 
         if (!inParty) {
-            int leftPanelLeft = layout.partyLeftPanelLeft;
-            int leftPanelRight = layout.partyLeftPanelRight;
-            int rightPanelLeft = layout.partyRightPanelLeft;
-            int rightPanelRight = layout.partyRightPanelRight;
+            int panelLeft = layout.partyLeftPanelLeft;
+            int panelRight = layout.partyRightPanelRight;
+            int textMaxWidth = panelRight - panelLeft - 24;
 
-            drawPanel(graphics, leftPanelLeft, layout.partyPanelTop, leftPanelRight, layout.partyPanelBottom, COLOR_PANEL, COLOR_BORDER);
-            drawPanel(graphics, rightPanelLeft, layout.partyPanelTop, rightPanelRight, layout.partyPanelBottom, COLOR_PANEL, COLOR_BORDER);
+            drawPanel(graphics, panelLeft, layout.partyPanelTop, panelRight, layout.partyPanelBottom, COLOR_PANEL, COLOR_BORDER);
+            graphics.fill(panelLeft + 1, layout.partyPanelTop + 1, panelRight - 1, layout.partyPanelTop + 4, 0xFF55FFFF);
+            int subtitleY = Math.max(layout.partyPanelTop + 42, layout.partyFormTop - 36);
+            int hintY = subtitleY + this.font.lineHeight + 5;
+            int dividerY = hintY + this.font.lineHeight + 8;
+            graphics.fill(panelLeft + 8, dividerY, panelRight - 8, dividerY + 1, 0x553A3A3A);
+
+            drawScaledCenteredString(
+                graphics,
+                Component.translatable("dynamicportals.ui.party.home.title"),
+                layout.centerX,
+                layout.partyPanelTop + 10,
+                1.25F,
+                0xFFFFFFFF
+            );
+            drawCenteredEllipsizedString(
+                graphics,
+                Component.translatable("dynamicportals.ui.party.home.subtitle"),
+                layout.centerX,
+                subtitleY,
+                textMaxWidth,
+                0xFFB0B0B0
+            );
 
             graphics.drawCenteredString(
                 this.font,
-                Component.translatable("dynamicportals.ui.party.no_party"),
+                Component.translatable("dynamicportals.ui.party.online_hint"),
                 layout.centerX,
-                Math.max(layout.feedbackY, layout.partyPanelTop - this.font.lineHeight - 2),
-                0xFFFFFF55
-            );
-
-            graphics.drawString(
-                this.font,
-                Component.translatable("dynamicportals.ui.party.create.section"),
-                leftPanelLeft + 8,
-                layout.partyPanelTop + 8,
-                0xFFFFFFFF,
-                false
-            );
-
-            Component createHelp = Component.translatable("dynamicportals.ui.party.create.help");
-            graphics.drawWordWrap(
-                this.font,
-                createHelp,
-                leftPanelLeft + 8,
-                layout.partyPanelTop + 22,
-                Math.max(40, leftPanelRight - leftPanelLeft - 16),
-                0xFFB0B0B0
-            );
-
-            graphics.drawString(
-                this.font,
-                Component.translatable("dynamicportals.ui.party.join.section"),
-                rightPanelLeft + 8,
-                layout.partyPanelTop + 8,
-                0xFFFFFFFF,
-                false
-            );
-
-            Component joinHelp = Component.translatable("dynamicportals.ui.party.join.help");
-            graphics.drawWordWrap(
-                this.font,
-                joinHelp,
-                rightPanelLeft + 8,
-                layout.partyPanelTop + 22,
-                Math.max(40, rightPanelRight - rightPanelLeft - 16),
-                0xFFB0B0B0
+                hintY,
+                0xFFAAFFFF
             );
             return;
         }
@@ -545,41 +504,49 @@ public class DynamicPortalsHubScreen extends Screen {
         int dashboardLeft = layout.partyLeftPanelLeft;
         int dashboardRight = layout.partyRightPanelRight;
         int panelWidth = dashboardRight - dashboardLeft;
-        int textMaxWidth = panelWidth - 16;
+        int textMaxWidth = panelWidth - 20;
         int lineStep = this.font.lineHeight + 2;
 
         drawPanel(graphics, dashboardLeft, layout.partyPanelTop, dashboardRight, layout.partyPanelBottom, COLOR_PANEL, COLOR_BORDER);
+        graphics.fill(dashboardLeft + 1, layout.partyPanelTop + 1, dashboardRight - 1, layout.partyPanelTop + 26, 0xAA262626);
+        graphics.fill(dashboardLeft + 1, layout.partyPanelTop + 1, dashboardRight - 1, layout.partyPanelTop + 4, 0xFF5555FF);
 
-        String alias = party.getString("alias");
         String code = party.getString("short_code");
         int memberCount = party.getInt("member_count");
         boolean isCreator = party.getBoolean("is_creator");
 
         int y = layout.partyPanelTop + 8;
-        drawEllipsizedString(graphics, Component.translatable("dynamicportals.ui.party.info.header"), dashboardLeft + 8, y, textMaxWidth, 0xFFFFFFFF);
-        y += lineStep;
-        drawEllipsizedString(graphics, Component.translatable("dynamicportals.ui.party.dashboard.subtitle"), dashboardLeft + 8, y, textMaxWidth, 0xFFB0B0B0);
-        y += lineStep;
-        drawEllipsizedString(graphics, Component.translatable("dynamicportals.ui.party.info.code", code), dashboardLeft + 8, y, textMaxWidth, 0xFFAAAAFF);
-        y += lineStep;
-        drawEllipsizedString(graphics, Component.translatable("dynamicportals.ui.party.info.alias", alias.isBlank() ? "-" : alias), dashboardLeft + 8, y, textMaxWidth, 0xFFAAFFFF);
-        y += lineStep;
-        drawEllipsizedString(graphics, Component.translatable("dynamicportals.ui.party.info.members", memberCount), dashboardLeft + 8, y, textMaxWidth, 0xFFFFFFAA);
+        graphics.drawCenteredString(this.font, Component.translatable("dynamicportals.ui.party.info.header"), layout.centerX, y, 0xFFFFFFFF);
+        y += lineStep + 6;
+        drawCenteredEllipsizedString(graphics, Component.translatable("dynamicportals.ui.party.dashboard.subtitle"), layout.centerX, y, textMaxWidth, 0xFFB0B0B0);
+        y += lineStep + 6;
+
+        int codeBoxTop = y;
+        int codeBoxBottom = codeBoxTop + 34;
+        drawPanel(graphics, dashboardLeft + 36, codeBoxTop, dashboardRight - 36, codeBoxBottom, 0x66303030, 0x8855FFFF);
+        graphics.drawCenteredString(this.font, Component.translatable("dynamicportals.ui.party.invite_code"), layout.centerX, codeBoxTop + 5, 0xFFAAFFFF);
+        drawScaledCenteredString(graphics, Component.literal(code.isBlank() ? "-----" : code), layout.centerX, codeBoxTop + 16, 1.35F, 0xFFFFFFFF);
+        y = codeBoxBottom + 7;
+
+        drawEllipsizedString(graphics, Component.translatable("dynamicportals.ui.party.info.members", memberCount), dashboardLeft + 10, y, textMaxWidth, 0xFFFFFFAA);
         y += lineStep;
 
         Component creatorText = isCreator
             ? Component.translatable("dynamicportals.ui.party.info.creator.you")
             : Component.translatable("dynamicportals.ui.party.info.creator.other");
         int wrappedLines = Math.max(1, this.font.split(creatorText, textMaxWidth).size());
-        graphics.drawWordWrap(this.font, creatorText, dashboardLeft + 8, y, textMaxWidth, 0xFFB0B0B0);
+        graphics.drawWordWrap(this.font, creatorText, dashboardLeft + 10, y, textMaxWidth, 0xFFB0B0B0);
         y += wrappedLines * lineStep;
-        y += 2;
+        y += 5;
 
-        drawEllipsizedString(graphics, Component.translatable("dynamicportals.ui.party.members.header"), dashboardLeft + 8, y, textMaxWidth, 0xFFFFFFFF);
+        int memberPanelTop = y - 2;
+        int memberPanelBottom = layout.partyPanelBottom - 6;
+        drawPanel(graphics, dashboardLeft + 7, memberPanelTop, dashboardRight - 7, memberPanelBottom, 0x55262626, 0x553A3A3A);
+        drawEllipsizedString(graphics, Component.translatable("dynamicportals.ui.party.members.header"), dashboardLeft + 14, y, textMaxWidth - 14, 0xFFFFFFFF);
         y += lineStep;
 
         ListTag members = party.getList("members", Tag.TAG_COMPOUND);
-        int maxMemberLines = Math.max(1, (layout.partyPanelBottom - y - 4) / lineStep);
+        int maxMemberLines = Math.max(1, (memberPanelBottom - y - 4) / lineStep);
         int shownMembers = Math.min(members.size(), maxMemberLines);
 
         for (int i = 0; i < shownMembers; i++) {
@@ -599,18 +566,18 @@ public class DynamicPortalsHubScreen extends Screen {
 
             int color = member.getBoolean("online") ? 0xFF80FF80 : 0xFFAAAAAA;
             String line = member.getString("name") + " - " + online + suffix;
-            graphics.drawString(this.font, ellipsize(line, textMaxWidth), dashboardLeft + 8, y, color, false);
+            graphics.drawString(this.font, ellipsize(line, textMaxWidth - 16), dashboardLeft + 14, y, color, false);
             y += lineStep;
         }
 
         int hiddenMembers = members.size() - shownMembers;
-        if (hiddenMembers > 0 && y <= layout.partyPanelBottom - this.font.lineHeight) {
+        if (hiddenMembers > 0 && y <= memberPanelBottom - this.font.lineHeight) {
             drawEllipsizedString(
                 graphics,
                 Component.translatable("dynamicportals.ui.party.members.more", hiddenMembers),
-                dashboardLeft + 8,
+                dashboardLeft + 14,
                 y,
-                textMaxWidth,
+                textMaxWidth - 16,
                 0xFFB0B0B0
             );
         }
@@ -635,9 +602,11 @@ public class DynamicPortalsHubScreen extends Screen {
 
         CompoundTag portal = portals.getCompound(detailsPortalIndex);
         ListTag requirements = portal.getList("requirement_entries", Tag.TAG_COMPOUND);
+        List<CompoundTag> sortedRequirements = sortedRequirements(requirements);
 
-        graphics.fill(0, 0, this.width, this.height, 0xAA000000);
-        drawPanel(graphics, layout.modalLeft, layout.modalTop, layout.modalRight, layout.modalBottom, 0xF0202020, 0xFF5A5A5A);
+        graphics.fill(0, 0, this.width, this.height, 0xEE101010);
+        drawPanel(graphics, layout.modalLeft, layout.modalTop, layout.modalRight, layout.modalBottom, 0xDD202020, 0xFF5A5A5A);
+        graphics.fill(layout.modalLeft + 1, layout.modalTop + 1, layout.modalRight - 1, layout.modalTop + 4, portal.getInt("status_color"));
 
         graphics.drawCenteredString(
             this.font,
@@ -649,7 +618,6 @@ public class DynamicPortalsHubScreen extends Screen {
         graphics.hLine(layout.modalLeft, layout.modalRight - 1, layout.modalTop + this.font.lineHeight + 12, 0x553A3A3A);
 
         int textMaxWidth = layout.modalRight - layout.modalLeft - 20;
-        int lineStep = this.font.lineHeight + 2;
         int lineY = layout.modalTop + 24;
 
         boolean hasBypassBanner = portal.getBoolean("bypass_banner");
@@ -666,10 +634,10 @@ public class DynamicPortalsHubScreen extends Screen {
                 textMaxWidth,
                 0xFF55FFFF
             );
-            lineY += lineStep;
+            lineY += this.font.lineHeight + 5;
         }
 
-        if (requirements.isEmpty()) {
+        if (sortedRequirements.isEmpty()) {
             graphics.drawCenteredString(
                 this.font,
                 Component.translatable("dynamicportals.ui.progress.details.empty"),
@@ -681,32 +649,26 @@ public class DynamicPortalsHubScreen extends Screen {
         }
 
         int requirementsPerPage = getDetailsRequirementsPerPage(layout, hasBypassBanner);
-        int totalPages = Math.max(1, (int) Math.ceil(requirements.size() / (double) requirementsPerPage));
+        int totalPages = Math.max(1, (int) Math.ceil(sortedRequirements.size() / (double) requirementsPerPage));
         this.detailsRequirementsPage = Math.max(0, Math.min(this.detailsRequirementsPage, totalPages - 1));
 
         int start = this.detailsRequirementsPage * requirementsPerPage;
-        int end = Math.min(requirements.size(), start + requirementsPerPage);
+        int end = Math.min(sortedRequirements.size(), start + requirementsPerPage);
 
         int y = lineY;
         for (int i = start; i < end; i++) {
-            CompoundTag requirement = requirements.getCompound(i);
-
-            Component line = Component.translatable(
-                "dynamicportals.command.check.requirement_line",
-                Component.translatable(requirement.getString("type_key")),
-                requirement.getString("target_name"),
-                requirement.getInt("current"),
-                requirement.getInt("required")
-            );
-
-            int color = requirement.getBoolean("completed") ? 0xFF66CC66 : 0xFFFFFF66;
-            drawEllipsizedString(graphics, line, layout.modalLeft + 10, y, textMaxWidth, color);
-            y += lineStep;
+            CompoundTag requirement = sortedRequirements.get(i);
+            if (isKillRequirement(requirement)) {
+                renderKillRequirementLine(graphics, requirement, layout.modalLeft + 10, layout.modalRight - 10, y);
+            } else {
+                renderTextRequirementLine(graphics, requirement, layout.modalLeft + 10, layout.modalRight - 10, y);
+            }
+            y += DETAILS_ROW_HEIGHT;
         }
 
         graphics.drawCenteredString(
             this.font,
-            Component.translatable("dynamicportals.ui.progress.details.page", this.detailsRequirementsPage + 1, totalPages),
+            Component.literal((this.detailsRequirementsPage + 1) + "/" + totalPages),
             layout.centerX,
             layout.modalBottom - 18,
             0xFFAAAAAA
@@ -732,8 +694,183 @@ public class DynamicPortalsHubScreen extends Screen {
         graphics.vLine(right - 1, top, bottom - 1, borderColor);
     }
 
+    private void drawScaledCenteredString(GuiGraphics graphics, Component text, int centerX, int y, float scale, int color) {
+        graphics.pose().pushPose();
+        graphics.pose().scale(scale, scale, 1.0F);
+        int scaledCenterX = Math.round(centerX / scale);
+        int scaledY = Math.round(y / scale);
+        graphics.drawCenteredString(this.font, text, scaledCenterX, scaledY + 1, 0xAA000000);
+        graphics.drawCenteredString(this.font, text, scaledCenterX, scaledY, color);
+        graphics.pose().popPose();
+    }
+
+    private void renderMainWidgets(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        renderWidget(graphics, this.progressTabButton, mouseX, mouseY, partialTick);
+        renderWidget(graphics, this.partyTabButton, mouseX, mouseY, partialTick);
+        renderWidget(graphics, this.progressPrevButton, mouseX, mouseY, partialTick);
+        renderWidget(graphics, this.progressNextButton, mouseX, mouseY, partialTick);
+
+        for (Button detailsButton : this.progressDetailButtons) {
+            renderWidget(graphics, detailsButton, mouseX, mouseY, partialTick);
+        }
+
+        renderWidget(graphics, this.joinCodeBox, mouseX, mouseY, partialTick);
+        renderWidget(graphics, this.createPartyButton, mouseX, mouseY, partialTick);
+        renderWidget(graphics, this.joinPartyButton, mouseX, mouseY, partialTick);
+        renderWidget(graphics, this.leavePartyButton, mouseX, mouseY, partialTick);
+        renderWidget(graphics, this.dissolvePartyButton, mouseX, mouseY, partialTick);
+    }
+
+    private void renderDetailsWidgets(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        renderWidget(graphics, this.detailsCloseButton, mouseX, mouseY, partialTick);
+        renderWidget(graphics, this.detailsPrevPageButton, mouseX, mouseY, partialTick);
+        renderWidget(graphics, this.detailsNextPageButton, mouseX, mouseY, partialTick);
+    }
+
+    private void renderWidget(GuiGraphics graphics, AbstractWidget widget, int mouseX, int mouseY, float partialTick) {
+        if (widget != null && widget.visible) {
+            widget.render(graphics, mouseX, mouseY, partialTick);
+        }
+    }
+
+    private void drawProgressBar(GuiGraphics graphics, int left, int top, int right, int bottom, int percent, int fillColor) {
+        int clampedPercent = clampInt(percent, 0, 100);
+        int width = Math.max(1, right - left);
+        int filledWidth = Math.max(0, Math.min(width, (int) Math.floor(width * (clampedPercent / 100.0D))));
+
+        graphics.fill(left, top, right, bottom, COLOR_PROGRESS_TRACK);
+        if (filledWidth > 0) {
+            graphics.fill(left, top, left + filledWidth, bottom, fillColor);
+        }
+        if (filledWidth < width) {
+            graphics.fill(left + filledWidth, top, right, bottom, COLOR_PROGRESS_EMPTY);
+        }
+    }
+
+    private void renderKillRequirementLine(GuiGraphics graphics, CompoundTag requirement, int left, int right, int y) {
+        boolean completed = requirement.getBoolean("completed");
+        int rowColor = completed ? 0x332F4F2F : 0x333F3518;
+        int borderColor = completed ? 0x664FAF4F : 0x66C6A63C;
+        graphics.fill(left, y - 2, right, y + DETAILS_ROW_HEIGHT - 3, rowColor);
+        graphics.hLine(left, right - 1, y - 2, borderColor);
+
+        int headX = left + 3;
+        int headY = y;
+        ResourceLocation texture = getMobHeadTexture(requirement.getString("target_id"));
+        if (texture != null) {
+            renderMobHeadTexture(graphics, texture, headX, headY);
+        } else {
+            drawMobHeadFallback(graphics, headX, headY, requirement.getString("target_name"));
+        }
+
+        String counter = requirement.getInt("current") + "/" + requirement.getInt("required");
+        int counterWidth = this.font.width(counter);
+        int counterX = right - counterWidth - 6;
+        int nameX = headX + KILL_HEAD_RENDER_SIZE + 6;
+        int nameMaxWidth = Math.max(20, counterX - nameX - 8);
+        int textY = y + ((KILL_HEAD_RENDER_SIZE - this.font.lineHeight) / 2);
+        int nameColor = completed ? 0xFF88CC88 : 0xFFFFE08A;
+        int counterColor = completed ? 0xFF66CC66 : 0xFFFFFF66;
+
+        graphics.drawString(this.font, ellipsize(requirement.getString("target_name"), nameMaxWidth), nameX, textY, nameColor, false);
+        graphics.drawString(this.font, counter, counterX, textY, counterColor, false);
+    }
+
+    private void renderMobHeadTexture(GuiGraphics graphics, ResourceLocation texture, int x, int y) {
+        graphics.blit(
+            texture,
+            x,
+            y,
+            KILL_HEAD_RENDER_SIZE,
+            KILL_HEAD_RENDER_SIZE,
+            0.0F,
+            0.0F,
+            KILL_HEAD_SOURCE_SIZE,
+            KILL_HEAD_SOURCE_SIZE,
+            KILL_HEAD_SOURCE_SIZE,
+            KILL_HEAD_SOURCE_SIZE
+        );
+    }
+
+    private void renderTextRequirementLine(GuiGraphics graphics, CompoundTag requirement, int left, int right, int y) {
+        boolean completed = requirement.getBoolean("completed");
+        int rowColor = completed ? 0x222F4F2F : 0x223F3518;
+        graphics.fill(left, y - 2, right, y + DETAILS_ROW_HEIGHT - 3, rowColor);
+
+        Component line = Component.translatable(
+            "dynamicportals.command.check.requirement_line",
+            Component.translatable(requirement.getString("type_key")),
+            requirement.getString("target_name"),
+            requirement.getInt("current"),
+            requirement.getInt("required")
+        );
+        int color = completed ? 0xFF88CC88 : 0xFFFFFF66;
+        drawEllipsizedString(graphics, line, left + 4, y + 4, right - left - 8, color);
+    }
+
+    private void drawMobHeadFallback(GuiGraphics graphics, int x, int y, String targetName) {
+        graphics.fill(x, y, x + KILL_HEAD_RENDER_SIZE, y + KILL_HEAD_RENDER_SIZE, 0xFF181818);
+        graphics.hLine(x, x + KILL_HEAD_RENDER_SIZE - 1, y, 0xFF555555);
+        graphics.hLine(x, x + KILL_HEAD_RENDER_SIZE - 1, y + KILL_HEAD_RENDER_SIZE - 1, 0xFF555555);
+        graphics.vLine(x, y, y + KILL_HEAD_RENDER_SIZE - 1, 0xFF555555);
+        graphics.vLine(x + KILL_HEAD_RENDER_SIZE - 1, y, y + KILL_HEAD_RENDER_SIZE - 1, 0xFF555555);
+
+        String initial = "?";
+        if (targetName != null && !targetName.isBlank()) {
+            initial = targetName.substring(0, 1).toUpperCase(java.util.Locale.ROOT);
+        }
+        int initialX = x + (KILL_HEAD_RENDER_SIZE - this.font.width(initial)) / 2;
+        int initialY = y + (KILL_HEAD_RENDER_SIZE - this.font.lineHeight) / 2;
+        graphics.drawString(this.font, initial, initialX, initialY, 0xFFAAAAAA, false);
+    }
+
+    private ResourceLocation getMobHeadTexture(String targetId) {
+        ResourceLocation target = ResourceLocation.tryParse(targetId);
+        if (target == null || this.minecraft == null) {
+            return null;
+        }
+
+        String texturePath = "textures/gui/mob_heads/" + target.getNamespace() + "/" + target.getPath() + ".png";
+        ResourceLocation texture = ResourceLocation.fromNamespaceAndPath(DynamicPortals.MOD_ID, texturePath);
+        return this.minecraft.getResourceManager().getResource(texture).isPresent() ? texture : null;
+    }
+
+    private static boolean isKillRequirement(CompoundTag requirement) {
+        return "dynamicportals.type.kill".equals(requirement.getString("type_key"));
+    }
+
+    private static String portalCardTitle(CompoundTag portal) {
+        String displayName = portal.getString("display_name");
+        if (displayName == null || displayName.isBlank()) {
+            displayName = portal.getString("dimension");
+        }
+        return displayName.toUpperCase(java.util.Locale.ROOT) + " PORTAL ACCESS";
+    }
+
+    private static List<CompoundTag> sortedRequirements(ListTag requirements) {
+        List<CompoundTag> sorted = new ArrayList<>();
+        for (int i = 0; i < requirements.size(); i++) {
+            CompoundTag requirement = requirements.getCompound(i);
+            if (!requirement.getBoolean("completed")) {
+                sorted.add(requirement);
+            }
+        }
+        for (int i = 0; i < requirements.size(); i++) {
+            CompoundTag requirement = requirements.getCompound(i);
+            if (requirement.getBoolean("completed")) {
+                sorted.add(requirement);
+            }
+        }
+        return sorted;
+    }
+
     private void drawEllipsizedString(GuiGraphics graphics, Component text, int x, int y, int maxWidth, int color) {
         graphics.drawString(this.font, ellipsize(text.getString(), maxWidth), x, y, color, false);
+    }
+
+    private void drawCenteredEllipsizedString(GuiGraphics graphics, Component text, int centerX, int y, int maxWidth, int color) {
+        String line = ellipsize(text.getString(), maxWidth);
+        graphics.drawString(this.font, line, centerX - (this.font.width(line) / 2), y, color, false);
     }
 
     private String ellipsize(String text, int maxWidth) {
@@ -774,8 +911,10 @@ public class DynamicPortalsHubScreen extends Screen {
         this.progressPage = Math.max(0, Math.min(this.progressPage, totalPages - 1));
 
         boolean detailsOpen = isDetailsOpen();
-        this.progressPrevButton.active = !detailsOpen && this.progressPage > 0;
-        this.progressNextButton.active = !detailsOpen && this.progressPage < totalPages - 1;
+        boolean showProgressPrev = this.activeTab == HubTab.PROGRESS && !detailsOpen && this.progressPage > 0;
+        boolean showProgressNext = this.activeTab == HubTab.PROGRESS && !detailsOpen && this.progressPage < totalPages - 1;
+        this.progressPrevButton.active = showProgressPrev;
+        this.progressNextButton.active = showProgressNext;
 
         for (int slot = 0; slot < MAX_PROGRESS_PORTALS_PER_PAGE; slot++) {
             int globalIndex = getPortalGlobalIndexForSlot(slot, layout.progressCardsPerPage);
@@ -799,15 +938,13 @@ public class DynamicPortalsHubScreen extends Screen {
             this.detailsNextPageButton.active = false;
         }
 
-        this.createPartyButton.active = this.createPasswordBox.getValue().trim().length() >= 4;
-        this.joinPartyButton.active = !this.joinCodeBox.getValue().trim().isEmpty()
-            && !this.joinPasswordBox.getValue().trim().isEmpty();
+        this.createPartyButton.active = true;
+        this.joinPartyButton.active = !this.joinCodeBox.getValue().trim().isEmpty();
 
         CompoundTag party = state.getCompound("party");
         boolean inParty = party.getBoolean("in_party");
         this.leavePartyButton.active = inParty;
         this.dissolvePartyButton.active = inParty && party.getBoolean("is_creator");
-        this.partyRefreshButton.active = inParty;
 
         this.leavePartyButton.setMessage(confirmLeave
             ? Component.translatable("dynamicportals.ui.button.leave_party_confirm")
@@ -823,6 +960,9 @@ public class DynamicPortalsHubScreen extends Screen {
         boolean progressTab = this.activeTab == HubTab.PROGRESS;
         boolean detailsOpen = isDetailsOpen();
 
+        this.progressTabButton.visible = !detailsOpen;
+        this.partyTabButton.visible = !detailsOpen;
+
         CompoundTag progress = state.getCompound("progress");
         ListTag portals = progress.getList("portals", Tag.TAG_COMPOUND);
         int totalPages = getProgressPages(portals, layout.progressCardsPerPage);
@@ -830,35 +970,58 @@ public class DynamicPortalsHubScreen extends Screen {
         int currentPageStart = this.progressPage * layout.progressCardsPerPage;
         int visibleProgressCards = Math.max(0, Math.min(layout.progressCardsPerPage, portals.size() - currentPageStart));
 
-        this.progressPrevButton.visible = progressTab && !detailsOpen;
-        this.progressNextButton.visible = progressTab && !detailsOpen;
+        this.progressPrevButton.visible = progressTab && !detailsOpen && this.progressPage > 0;
+        this.progressNextButton.visible = progressTab && !detailsOpen && this.progressPage < totalPages - 1;
 
         for (int i = 0; i < this.progressDetailButtons.length; i++) {
             this.progressDetailButtons[i].visible = progressTab && !detailsOpen && i < visibleProgressCards;
         }
 
         this.detailsCloseButton.visible = progressTab && detailsOpen;
-        this.detailsPrevPageButton.visible = progressTab && detailsOpen;
-        this.detailsNextPageButton.visible = progressTab && detailsOpen;
-
-        this.globalRefreshButton.visible = progressTab && !detailsOpen;
+        boolean showDetailsPrev = false;
+        boolean showDetailsNext = false;
+        if (progressTab && detailsOpen && detailsPortalIndex >= 0 && detailsPortalIndex < portals.size()) {
+            CompoundTag portal = portals.getCompound(detailsPortalIndex);
+            ListTag requirements = portal.getList("requirement_entries", Tag.TAG_COMPOUND);
+            int requirementsPerPage = getDetailsRequirementsPerPage(layout, portal.getBoolean("bypass_banner"));
+            int requirementPages = Math.max(1, (int) Math.ceil(requirements.size() / (double) requirementsPerPage));
+            showDetailsPrev = this.detailsRequirementsPage > 0;
+            showDetailsNext = this.detailsRequirementsPage < requirementPages - 1;
+        }
+        this.detailsPrevPageButton.visible = showDetailsPrev;
+        this.detailsNextPageButton.visible = showDetailsNext;
+        this.detailsPrevPageButton.active = showDetailsPrev;
+        this.detailsNextPageButton.active = showDetailsNext;
 
         CompoundTag party = state.getCompound("party");
         boolean inParty = party.getBoolean("in_party");
         boolean partyTab = this.activeTab == HubTab.PARTY;
 
         boolean showPartyForms = partyTab && !inParty;
-        this.createPasswordBox.visible = showPartyForms;
-        this.createAliasBox.visible = showPartyForms;
         this.joinCodeBox.visible = showPartyForms;
-        this.joinPasswordBox.visible = showPartyForms;
         this.createPartyButton.visible = showPartyForms;
         this.joinPartyButton.visible = showPartyForms;
 
         boolean showPartyActions = partyTab && inParty;
+        boolean isCreator = party.getBoolean("is_creator");
         this.leavePartyButton.visible = showPartyActions;
-        this.dissolvePartyButton.visible = showPartyActions;
-        this.partyRefreshButton.visible = showPartyActions;
+        this.dissolvePartyButton.visible = showPartyActions && isCreator;
+        if (showPartyActions) {
+            int panelWidth = layout.partyRightPanelRight - layout.partyLeftPanelLeft;
+            if (isCreator) {
+                int partyActionGap = 12;
+                int actionWidth = Math.max(110, Math.min(170, (panelWidth - partyActionGap) / 2));
+                int actionsLeft = layout.centerX - ((actionWidth * 2 + partyActionGap) / 2);
+                this.leavePartyButton.setWidth(actionWidth);
+                this.leavePartyButton.setX(actionsLeft);
+                this.dissolvePartyButton.setWidth(actionWidth);
+                this.dissolvePartyButton.setX(actionsLeft + actionWidth + partyActionGap);
+            } else {
+                int centeredWidth = Math.max(140, Math.min(190, panelWidth - 48));
+                this.leavePartyButton.setWidth(centeredWidth);
+                this.leavePartyButton.setX(layout.centerX - (centeredWidth / 2));
+            }
+        }
     }
 
     private void applyLayoutToWidgets() {
@@ -868,27 +1031,26 @@ public class DynamicPortalsHubScreen extends Screen {
 
         HubLayout layout = computeLayout();
 
+        int navWidth = Math.max(70, Math.min(92, (layout.progressCardWidth - 12) / 4));
         int tabGap = 8;
-        int tabWidth = Math.max(96, Math.min(148, (this.width - 24 - tabGap) / 2));
-        this.progressTabButton.setWidth(tabWidth);
-        this.partyTabButton.setWidth(tabWidth);
-        this.progressTabButton.setX(layout.centerX - tabGap / 2 - tabWidth);
-        this.progressTabButton.setY(layout.tabsY);
-        this.partyTabButton.setX(layout.centerX + tabGap / 2);
-        this.partyTabButton.setY(layout.tabsY);
+        int actionGap = Math.max(18, Math.min(34, this.width / 18));
+        int tabWidth = Math.max(88, Math.min(126, (layout.progressCardWidth - (navWidth * 2) - actionGap - 24) / 2));
+        int controlsWidth = (navWidth * 2) + tabGap + actionGap + (tabWidth * 2) + tabGap;
+        int controlsLeft = layout.centerX - controlsWidth / 2;
 
-        int refreshWidth = Math.max(78, Math.min(110, this.width / 4));
-        this.globalRefreshButton.setWidth(refreshWidth);
-        this.globalRefreshButton.setX(this.width - refreshWidth - 12);
-        this.globalRefreshButton.setY(layout.globalRefreshY);
-
-        int navWidth = Math.max(70, Math.min(96, (layout.progressCardWidth - 12) / 3));
         this.progressPrevButton.setWidth(navWidth);
         this.progressNextButton.setWidth(navWidth);
-        this.progressPrevButton.setX(layout.progressCardLeft);
+        this.progressPrevButton.setX(controlsLeft);
         this.progressPrevButton.setY(layout.progressNavY);
-        this.progressNextButton.setX(layout.progressCardLeft + navWidth + 8);
+        this.progressNextButton.setX(controlsLeft + navWidth + tabGap);
         this.progressNextButton.setY(layout.progressNavY);
+
+        this.progressTabButton.setWidth(tabWidth);
+        this.partyTabButton.setWidth(tabWidth);
+        this.progressTabButton.setX(controlsLeft + (navWidth * 2) + tabGap + actionGap);
+        this.progressTabButton.setY(layout.tabsY);
+        this.partyTabButton.setX(this.progressTabButton.getX() + tabWidth + tabGap);
+        this.partyTabButton.setY(layout.tabsY);
 
         int detailsWidth = Math.max(66, Math.min(86, layout.progressCardWidth / 4));
         for (int i = 0; i < MAX_PROGRESS_PORTALS_PER_PAGE; i++) {
@@ -909,57 +1071,44 @@ public class DynamicPortalsHubScreen extends Screen {
         this.detailsNextPageButton.setX(layout.modalLeft + detailsControlWidth + 8);
         this.detailsNextPageButton.setY(layout.modalControlY);
 
-        int leftX = layout.partyLeftPanelLeft + 8;
-        int rightX = layout.partyRightPanelLeft + 8;
-        int formWidth = Math.max(110, Math.min(180, (layout.partyLeftPanelRight - layout.partyLeftPanelLeft) - 16));
-
-        this.createPasswordBox.setWidth(formWidth);
-        this.createPasswordBox.setX(leftX);
-        this.createPasswordBox.setY(layout.partyFormTop);
-        this.createAliasBox.setWidth(formWidth);
-        this.createAliasBox.setX(leftX);
-        this.createAliasBox.setY(layout.partyFormTop + 28);
-
+        int panelWidth = layout.partyRightPanelRight - layout.partyLeftPanelLeft;
+        int formWidth = Math.max(140, Math.min(190, panelWidth - 48));
+        int formX = layout.centerX - (formWidth / 2);
         this.joinCodeBox.setWidth(formWidth);
-        this.joinCodeBox.setX(rightX);
-        this.joinCodeBox.setY(layout.partyFormTop);
-        this.joinPasswordBox.setWidth(formWidth);
-        this.joinPasswordBox.setX(rightX);
-        this.joinPasswordBox.setY(layout.partyFormTop + 28);
+        this.joinCodeBox.setX(formX);
+        this.joinCodeBox.setY(layout.partyFormTop + 34);
 
         this.createPartyButton.setWidth(formWidth);
-        this.createPartyButton.setX(leftX);
-        this.createPartyButton.setY(layout.partyFormTop + 56);
+        this.createPartyButton.setX(formX);
+        this.createPartyButton.setY(layout.partyFormTop);
 
         this.joinPartyButton.setWidth(formWidth);
-        this.joinPartyButton.setX(rightX);
-        this.joinPartyButton.setY(layout.partyFormTop + 56);
+        this.joinPartyButton.setX(formX);
+        this.joinPartyButton.setY(layout.partyFormTop + 62);
 
-        this.leavePartyButton.setWidth(formWidth);
-        this.leavePartyButton.setX(leftX);
+        int partyActionGap = 12;
+        int actionWidth = Math.max(110, Math.min(170, (panelWidth - partyActionGap) / 2));
+        int actionsLeft = layout.centerX - ((actionWidth * 2 + partyActionGap) / 2);
+        this.leavePartyButton.setWidth(actionWidth);
+        this.leavePartyButton.setX(actionsLeft);
         this.leavePartyButton.setY(layout.partyActionsY);
 
-        this.dissolvePartyButton.setWidth(formWidth);
-        this.dissolvePartyButton.setX(rightX);
+        this.dissolvePartyButton.setWidth(actionWidth);
+        this.dissolvePartyButton.setX(actionsLeft + actionWidth + partyActionGap);
         this.dissolvePartyButton.setY(layout.partyActionsY);
-
-        int partyRefreshWidth = Math.max(96, Math.min(120, layout.progressCardWidth / 3));
-        this.partyRefreshButton.setWidth(partyRefreshWidth);
-        this.partyRefreshButton.setX(layout.centerX - (partyRefreshWidth / 2));
-        this.partyRefreshButton.setY(Math.min(this.height - 24, layout.partyActionsY + 26));
     }
 
     private HubLayout computeLayout() {
         int centerX = this.width / 2;
         int sideMargin = 10;
 
-        int tabsY = 16;
-        int titleY = tabsY + BUTTON_HEIGHT + 10;
-        int feedbackY = titleY + this.font.lineHeight + 3;
-        int contentTop = feedbackY + this.font.lineHeight + 8;
+        int tabsY = Math.max(8, this.height - 28);
+        int titleY = Math.max(14, Math.min(28, this.height / 12));
+        int titleHeight = Math.round(this.font.lineHeight * TITLE_SCALE) + 10;
+        int feedbackY = titleY + titleHeight + 8;
+        int contentTop = feedbackY + this.font.lineHeight + 12;
 
         int progressNavY = Math.min(this.height - 24, Math.max(contentTop + 90, this.height - 52));
-        int globalRefreshY = Math.max(8, this.height - 26);
 
         int progressCardsBottomY = progressNavY - 10;
         int progressPageY = contentTop;
@@ -979,7 +1128,7 @@ public class DynamicPortalsHubScreen extends Screen {
         int progressCardsPerPage = clampInt(slotsFit, 1, MAX_PROGRESS_PORTALS_PER_PAGE);
 
         int partyPanelTop = contentTop;
-        int partyPanelBottom = Math.max(partyPanelTop + 110, this.height - 92);
+        int partyPanelBottom = Math.max(partyPanelTop + 182, this.height - 92);
         partyPanelBottom = Math.min(this.height - 40, partyPanelBottom);
 
         int partyGap = 12;
@@ -995,7 +1144,7 @@ public class DynamicPortalsHubScreen extends Screen {
         int partyRightPanelLeft = partyLeftPanelRight + partyGap;
         int partyRightPanelRight = partyLeft + partyTotalWidth;
 
-        int partyFormTop = partyPanelTop + 42;
+        int partyFormTop = Math.min(partyPanelTop + 88, Math.max(partyPanelTop + 74, partyPanelBottom - 90));
         int partyActionsY = Math.min(this.height - 24, Math.max(partyPanelBottom + 10, this.height - 78));
 
         int modalWidth = Math.min(MAX_MODAL_WIDTH, this.width - 20);
@@ -1005,10 +1154,13 @@ public class DynamicPortalsHubScreen extends Screen {
 
         int modalLeft = centerX - (modalWidth / 2);
         int modalRight = modalLeft + modalWidth;
-        int modalTop = Math.max(contentTop - 4, 42);
-        int modalBottom = Math.min(this.height - 12, this.height - 64);
+        int modalTop = Math.max(26, Math.min(48, this.height / 10));
+        int modalBottom = Math.max(40, this.height - 54);
+        if (modalBottom <= modalTop + 80) {
+            modalBottom = Math.min(this.height - 8, modalTop + 120);
+        }
         if (modalBottom - modalTop < 120) {
-            modalTop = Math.max(20, modalBottom - 120);
+            modalTop = Math.max(8, modalBottom - 120);
         }
         int modalControlY = Math.min(this.height - 24, modalBottom + 8);
 
@@ -1026,7 +1178,6 @@ public class DynamicPortalsHubScreen extends Screen {
             progressCardWidth,
             progressCardsPerPage,
             progressNavY,
-            globalRefreshY,
             partyPanelTop,
             partyPanelBottom,
             partyLeftPanelLeft,
@@ -1044,11 +1195,11 @@ public class DynamicPortalsHubScreen extends Screen {
     }
 
     private int getDetailsRequirementsPerPage(HubLayout layout, boolean hasBypassBanner) {
-        int lineStep = this.font.lineHeight + 2;
-        int contentStartY = layout.modalTop + 24 + (hasBypassBanner ? lineStep : 0);
+        int bannerHeight = hasBypassBanner ? this.font.lineHeight + 5 : 0;
+        int contentStartY = layout.modalTop + 24 + bannerHeight;
         int contentEndY = layout.modalBottom - 26;
         int usableHeight = contentEndY - contentStartY;
-        int perPage = usableHeight / lineStep;
+        int perPage = usableHeight / DETAILS_ROW_HEIGHT;
         return Math.max(1, perPage);
     }
 

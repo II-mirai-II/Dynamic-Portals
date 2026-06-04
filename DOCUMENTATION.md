@@ -1,573 +1,501 @@
-# 📚 Dynamic Portals - Complete Documentation
+# Dynamic Portals Documentation
 
-> **Full guide for gameplay, configuration, commands, and technical details.**  
-> [← Back to README](README.md)
+> Complete gameplay, configuration, command, party, and testing guide.
+> Back to [README.md](README.md).
 
 ---
 
-## 🎮 How to Play (Step-by-Step Tutorial)
+## 1. What Dynamic Portals Does
 
-### For New Players
+Dynamic Portals lets server owners and modpack makers lock dimension access behind configurable progression. A portal destination can require mob kills, item progress, advancements, or optional bypass items before a player can enter.
 
-**1. Check Your Requirements** 
-Use `/dp check` in chat to see what needs to be done:
-```
+The mod is built around three ideas:
+
+- Progress should feel earned.
+- Rules should be editable through TOML, without recompiling.
+- Multiplayer progression should be easy to understand and reliable.
+
+The default setup includes Nether and End portal access rules, but the same system can be used for vanilla, modded, or custom dimensions.
+
+---
+
+## 2. Quick Player Guide
+
+1. Open the Hub with `H`, or use `/dp check`.
+2. Check which portal access requirements are still missing.
+3. Complete the listed goals, such as killing mobs or gathering configured items.
+4. Once every active requirement for a destination is complete, the portal becomes available.
+5. Optional: create a party so friends can share saved progression.
+
+Useful commands:
+
+```txt
 /dp check
-```
-You'll see a list of "Next Targets" - the next mob or item to conquer.
-
-**2. Complete a Requirement**
-Default example: to unlock the **Nether**, you need to kill:
-- 1x Zombie
-- 1x Skeleton  
-- 1x Spider
-- *(and 11 more different mobs)*
-
-Go out and kill a Zombie. You'll receive in chat:
-```
-✓ You killed 1 Zombie!
-```
-
-**3. Track Your Progress**
-Keep executing `/dp check` and watch your progress grow. Each completed requirement gets a notification:
-```
-✓ Requirement complete! [Kill Skeleton]  
-✓ Requirement complete! [Kill Spider]
-```
-
-**4. Unlock Portals**
-When all requirements are completed, trying to enter the portal:
-```
-[Portal Unlocked!] Nether is now accessible!
-```
-
-**5. (Optional) Create a Party**
-Call your friends! Create a party to share progress:
-```
-/dp party create password123 MyAwesomeTeam
-```
-Share the party code with friends and they can `/dp party join` to enter. Now progress is shared!
-
-### Visualization Modes
-
-```bash
-# Compact Mode (default - summarized)
-/dp check
-
-# Detailed Mode (shows progress %)
-/dp check detailed
-
-# Pending Mode (only missing requirements)
-/dp check pending
-
-# Specific Dimension
 /dp check nether
-/dp check the_end
-
-# With Pagination
-/dp check pending 2        # Page 2 of requirements
+/dp check end
+/dp check pending
 ```
+
+When a portal is blocked, the mod shows feedback in chat/overlay and points the player toward the Hub or `/dp check`.
 
 ---
 
-## ⚙️ Complete Configuration
+## 3. Progress Hub
 
-The mod is **100% configurable** via TOML file. No recompilation needed!
+The Progress Hub is the main visual interface of the mod.
 
-### File Location
+Default keybind:
+
+```txt
+H
 ```
+
+The Hub includes:
+
+- Portal access cards for each active configured destination.
+- Status colors, progress bars, and short requirement summaries.
+- A Details screen for the full requirement list.
+- Custom PNG mob head icons for kill requirements.
+- A Party tab for creating, joining, leaving, or dissolving parties.
+
+The server builds the progression snapshot, and the client only renders it. This keeps the UI synchronized with actual server-side progression.
+
+---
+
+## 4. Requirement Types
+
+Dynamic Portals currently supports four requirement paths.
+
+### Kill Requirements
+
+Players must kill a configured entity.
+
+```txt
+destination_dimension|entity_id|count
+```
+
+Example:
+
+```txt
+minecraft:the_nether|minecraft:zombie|10
+```
+
+### Item Requirements
+
+Players must gain configured items. The mod tracks inventory increases for those item IDs.
+
+```txt
+destination_dimension|item_id|count
+```
+
+Example:
+
+```txt
+minecraft:the_nether|minecraft:diamond|3
+```
+
+### Advancement Requirements
+
+Players must earn a configured advancement.
+
+```txt
+destination_dimension|advancement_id
+```
+
+Example:
+
+```txt
+minecraft:the_end|minecraft:end/kill_dragon
+```
+
+### Bypass Items
+
+Bypass items are optional alternate unlock paths. When consumed or used, they unlock that destination for the consuming player.
+
+```txt
+destination_dimension|item_id
+```
+
+Example:
+
+```txt
+minecraft:the_nether|minecraft:magma_cream
+```
+
+Bypass unlocks are individual and do not unlock the portal for other party members.
+
+---
+
+## 5. Configuration
+
+The config is generated at:
+
+```txt
 config/dynamicportals-common.toml
 ```
 
-### Basic Structure
+Main sections:
 
 ```toml
 [general]
-# Show progress notifications in chat
 enableChatProgress = true
-
-# Play sound when completing requirement
 enableSuccessSound = true
 
-[requirements.killRequirements]
-# Format: dimension|entity|quantity
-# Nether (default)
-minecraft:the_nether|minecraft:zombie|1
-minecraft:the_nether|minecraft:skeleton|1
-minecraft:the_nether|minecraft:spider|1
-minecraft:the_nether|minecraft:creeper|1
-minecraft:the_nether|minecraft:slime|1
-# ... 9 more mobs
+[requirements]
+killRequirements = [
+    "minecraft:the_nether|minecraft:zombie|1",
+    "minecraft:the_nether|minecraft:skeleton|1",
+    "minecraft:the_end|minecraft:wither_skeleton|1"
+]
 
-# The End (default)
-minecraft:the_end|minecraft:magma_cube|1
-minecraft:the_end|minecraft:blaze|1
-minecraft:the_end|minecraft:wither_skeleton|1
-# ... 6 more mobs
+itemRequirements = [
+    "minecraft:the_nether|example:disabled_item|1"
+]
 
-[requirements.consumeBypassItems]
-# Use special item to unlock directly (consumed)
-minecraft:the_nether|minecraft:magma_cream
-minecraft:the_end|minecraft:chorus_fruit
-```
+advancementRequirements = [
+    "minecraft:the_end|example:disabled_advancement"
+]
 
-### 3 Configuration Scenarios
-
-#### Scenario 1: Pure Vanilla (Default)
-Use the default config without modifications. Works with any vanilla server!
-
-#### Scenario 2: With Additional Mods
-Add mobs from mods in the config:
-
-```toml
-[requirements.killRequirements]
-# Vanilla mobs default
-minecraft:the_nether|minecraft:zombie|1
-
-# Now add mobs from mods!
-# Twilight Forest
-twilightforest:the_twilight|twilightforest:swamp_troll|1
-twilightforest:the_twilight|twilightforest:naga|1
-
-# Deep Abyss (example)
-deepabyss:deep_abyss|deepabyss:abyss_creature|2
-```
-
-#### Scenario 3: Completely Custom
-Create your own requirements from scratch:
-
-```toml
-[requirements.killRequirements]
-# Your server with unique requirements!
-minecraft:the_nether|minecraft:piglin|5
-minecraft:the_nether|minecraft:hoglin|3
-minecraft:the_nether|minecraft:ghast|2
-
-[requirements.itemRequirements]
-minecraft:the_nether|minecraft:netherite_ingot|3
-minecraft:the_nether|minecraft:golden_apple|2
-```
-
-### Advanced Configuration
-
-```toml
-[requirements.itemRequirements]
-# Item Requirements
-minecraft:the_nether|minecraft:iron_ingot|32
-minecraft:the_nether|minecraft:gold_ingot|16
-
-[requirements.advancementRequirements]
-# Achievement Requirements
-minecraft:nether|minecraft:nether/root
-minecraft:nether|minecraft/nether/find_bastion
-```
-
----
-
-## 📟 Complete Command List
-
-### Command Structure
-
-```
-/dp
-├── check [dimension] [mode] [page]       → View progress
-├── debug sword [players] [count]         → Give test sword (OP level 2+)
-└── party
-    ├── create <password> [alias]         → Create new party
-    ├── join <code> <password>            → Join existing party
-    ├── leave                             → Leave current party
-    ├── members                           → List members
-    ├── dissolve                          → Dissolve party (creator only)
-    └── info                              → View party info
-```
-
-### Detailed Commands
-
-#### `/dp check [dimension] [mode] [page]`
-
-View your requirements progress.
-
-**Parameters:**
-- `[dimension]` (optional): `nether`, `the_end`, or custom name
-- `[mode]` (optional): `compact` (default), `detailed`, or `pending`
-- `[page]` (optional): page number (default: 1)
-
-**Examples:**
-```bash
-/dp check                              # Compact mode, all dimensions, page 1
-/dp check nether                       # Compact mode Nether
-/dp check the_end detailed             # Detailed mode with %
-/dp check pending                      # Only missing requirements
-/dp check nether detailed 2            # Nether, detailed mode, page 2
-```
-
-**Output Example (Compact):**
-```
-═══ Dynamic Portals - Progress ═══
-📍 Nether (0/1 requirements missing)
-✓ Kill Zombie
-✓ Kill Skeleton
-⏳ Kill Spider
-  → Next: Spider (0/1)
-
-📍 The End (2/9 requirements missing)
-✓ Kill Magma Cube
-⏳ Kill Blaze
-  → Next: Blaze (0/1)
-  
-Page 1/1
-```
-
-#### `/dp debug sword [players] [count]`
-
-**OP Level 2+ required.** Give test sword (kills any mob with 1 hit) for debug/testing.
-
-**Examples:**
-```bash
-/dp debug sword @s 1                   # Give 1 sword to yourself
-/dp debug sword @a 2                   # Give 2 swords to all players
-```
-
-#### `/dp party create <password> [alias]`
-
-Create a new party and become the creator/leader.
-
-**Parameters:**
-- `<password>`: 4-32 characters (required)
-- `[alias]`: Party name (optional, up to 24 characters)
-
-**Examples:**
-```bash
-/dp party create password123           # Create with password
-/dp party create MySecret MyTeam        # With custom alias
-/dp party create 12345 "My Squad"      # With spaces in alias
-```
-
-**Output:**
-```
-✓ Party created!
-Code: AB12CD
-Alias: MyTeam
-Members: 1/8
-```
-
-#### `/dp party join <code> <password>`
-
-Join an existing party using the code and password.
-
-**Examples:**
-```bash
-/dp party join AB12CD password123      # Join the party
-```
-
-**Output:**
-```
-✓ Joined party: MyTeam
-Members: 2/8
-Your progress is now shared with party members!
-```
-
-#### `/dp party leave`
-
-Leave your current party. Your individual progress is preserved.
-
-```bash
-/dp party leave
-```
-
-**Output:**
-```
-✓ Left party. Your individual progress is preserved.
-```
-
-#### `/dp party members`
-
-List all members of your party (online/offline).
-
-```bash
-/dp party members
-```
-
-**Output:**
-```
-═══ Party Members ═══
-👑 PlayerOne (creator, online)
-👤 PlayerTwo (online)
-👤 PlayerThree (offline)
-```
-
-#### `/dp party dissolve`
-
-Dissolve the party (only creator can do this).
-
-```bash
-/dp party dissolve
-```
-
-**Output:**
-```
-✓ Party dissolved. All members have been notified.
-```
-
-#### `/dp party info`
-
-View party information (name, members, creation date).
-
-```bash
-/dp party info
-```
-
-**Output:**
-```
-═══ Party Info ═══
-Alias: MyTeam
-Members: 3/8 (2 online)
-Created: 2026-04-16
-```
-
----
-
-## 🏗️ Technical Architecture (for Server Admins)
-
-### Component Overview
-
-```
-┌─────────────────────────────────────────────────┐
-│        DynamicPortals (Main Class)              │
-└─────────────────────────────────────────────────┘
-                          │
-        ┌─────────────────┼─────────────────┐
-        │                 │                 │
-   ┌────▼─────┐     ┌─────▼──────┐   ┌────▼────────┐
-   │ ModItems │     │   Config   │   │   Events    │
-   │ (Items)  │     │(TOML Load) │   │(Listeners)  │
-   └────┬─────┘     └─────┬──────┘   └────┬────────┘
-        │                 │                │
-        │                 ▼                │
-        │          ┌──────────────┐        │
-        │          │ PortalRules  │        │
-        │          │(Definitions) │        │
-        │          └──────┬───────┘        │
-        │                 │                │
-   ┌────▼─────────────────▼────────────────▼──────┐
-   │    RequirementEngine (Evaluation)            │
-   │  (Player vs Portal Rules)                    │
-   └─────────────────┬──────────────────┬────────┘
-                     │                  │
-         ┌───────────▼──────┐   ┌──────▼──────────┐
-         │ ProgressStore    │   │  PartyData      │
-         │(Player NBT Data) │   │ (World SavedData)
-         └───────────┬──────┘   └──────┬──────────┘
-                     │                 │
-         ┌───────────▼─────────────────▼────────┐
-         │  ProgressNotifier                    │
-         │  (Chat UI + Sounds + Broadcast)      │
-         └─────────────────┬────────────────────┘
-                           │
-         ┌─────────────────▼────────────────┐
-         │   Command System (/dp, /dp party)│
-         └────────────────────────────────┘
-```
-
-### Data Flow (From Event to Notification)
-
-1. **Game Event** → Player kills Zombie
-2. **Event Listener** (`ProgressEvents.java`) → Captures `LivingDeathEvent`
-3. **Progress Tracking** → Increments counter in `ProgressStore` (player NBT)
-4. **Requirement Evaluation** → `RequirementEngine` validates if requirement was completed
-5. **Broadcast** → If in party, `ProgressNotifier` sends message to all members
-6. **Chat Feedback** → Player receives: `✓ Requirement complete! [Kill Zombie]`
-7. **Hub Snapshot Sync** → Server builds a live snapshot (`HubSnapshotBuilder`) and sends it to clients.
-8. **Progress + Party Hub Render** → Client screen reads synced state and shows Progress/Party data in a dedicated GUI.
-9. **Sound Effect** → (If `enableSuccessSound = true`) Plays "level up" sound
-
-### Data Persistence
-
-#### Player Data (NBT - PersistentDataContainer)
-```
-dynamicportals
-├── kills              (nested tags: "dimension|entity" → count)
-├── items             (nested tags: "dimension|item" → count)
-├── advancements      (nested tags: "dimension|advancement" → boolean)
-├── unlocked          (dimension → unlocked flag)
-├── bypass_unlocked   (dimension → bypass unlocked)
-├── completed         (requirement_key → completion flag)
-└── party_id          (UUID of party if member)
-```
-
-#### World Data (SavedData - "dynamicportals_parties")
-```
-parties: [
-  {
-    id: UUID
-    creator: UUID (player who created)
-    password_hash: SHA-256 (secure)
-    short_code: "AB12CD" (6 digits)
-    alias: "MyTeam"
-    members: [UUID, UUID, ...]
-  }
+consumeBypassItems = [
+    "minecraft:the_nether|minecraft:magma_cream",
+    "minecraft:the_end|minecraft:chorus_fruit"
 ]
 ```
 
-### Progress + Party Hub (Client-Side)
+Lines using the `example:` namespace are illustrative and intentionally ignored.
 
-Version 2.1.0 introduces a dedicated in-game Hub that upgrades the experience from command-only interaction to a focused visual interface.
-
-- **Primary goal**: Make progression and party management faster and easier for players.
-- **Main tabs**: Progress and Party in a single screen.
-- **Network flow**: `HubRequestPayload` (client requests) + `HubStatePayload` (server snapshot response).
-- **Server builder**: `HubSnapshotBuilder` composes portal status, requirement summaries, and party data.
-- **Client state**: `HubClientState` stores synchronized snapshot data for rendering.
-- **Runtime integration**: `ClientRuntimeHooks` handles keybind open, periodic refresh, and UI synchronization.
-- **UI behavior**: Pagination, detail modal, party actions, and responsive layout for different viewport sizes.
-
-Current scope: the Hub is the central UX layer for Progress + Party workflows, while commands remain available as a fallback and power-user path.
-
-### Party Aggregation (How sharing works)
-
-**Scenario:**
-- Party: Alice + Bob
-- Alice killed 3 Zombies
-- Bob killed 2 Zombies
-
-**Requirement: Kill 4 Zombies**
-
-Function `/dp check` in **compact mode**:
-1. Checks: Is Alice in a party? ✓ Yes
-2. Calls: `RequirementEngine.evaluateParty()` instead of `evaluate()`
-3. `evaluateParty()` sums: Alice (3) + Bob (2) = **5 Zombies**
-4. Result: ✓ Requirement **COMPLETE** for both!
-
-**Without party:**
-- `/dp check` uses `evaluate()` (individual progress)
-- Alice sees: 3/4 Zombies
-- Bob sees: 2/4 Zombies
-
-### Notification Deduplication
-
-To prevent spam when multiple events fire rapidly:
-
-```java
-private static Map<String, Long> RECENT_PARTY_COMPLETIONS = new ConcurrentHashMap<>();
-private static final long PARTY_BROADCAST_DEDUPE_MS = 1000L; // 1 second
-
-// Key: "player-uuid|dimension|type|target"
-// If same requirement fires 2x in <1s → message sent only 1x
-```
+After changing the config, reload or restart according to your server setup.
 
 ---
 
-## 📦 Installation
+## 6. Registry Validation and Mod Compatibility
 
-### Simple Steps
+Dynamic Portals validates active requirements against loaded registries.
 
-**1. Download the Mod**
-- Download from CurseForge: [Dynamic Portals](https://www.curseforge.com/minecraft/mods/dynamic-portals)
+- Kill requirements require the entity ID to exist.
+- Item requirements require the item ID to exist.
+- Bypass items require the item ID to exist.
+- Invalid IDs or missing modded entities/items are ignored at runtime.
+- The TOML is not rewritten when a rule is inactive.
 
-**2. Install on Server/Client**
-```bash
-# Copy the .jar file to the mods/ folder
-cp Dynamic Portals-2.0.0.jar ./mods/
+This makes optional mod compatibility simple:
+
+```txt
+some_mod:custom_dimension|some_mod:boss_entity|1
 ```
 
-**3. Choose: Use Defaults or Customize**
+If `some_mod` is not installed, the rule stays inactive. If the mod is installed and registers that entity, the rule becomes active.
 
-**Option A - Use Default Configuration:**
-```bash
-# Just start the server/client!
-# The mod will create config/dynamicportals-common.toml automatically
-```
-
-**Option B - Customize First:**
-```bash
-# 1. Start once to generate the config file
-# 2. Edit config/dynamicportals-common.toml with your requirements
-# 3. Restart your server
-```
-
-### Config File
-
-After starting, you'll have:
-```
-config/dynamicportals-common.toml
-```
-
-Edit this file to:
-- Enable/disable chat notifications
-- Enable/disable sounds
-- Customize requirements (kills, items, advancements)
-- Add custom portals
-
-**No recompilation needed!** Just edit the TOML, save, and run `/reload` or restart.
+Destination dimensions are checked syntactically, but not forced to exist immediately, which avoids false negatives with datapacks or dynamic dimension systems.
 
 ---
 
-## 🌐 Localization
+## 7. Default Progression
 
-### Supported Languages
+The generated default config currently includes:
 
-| Language | Status |
-|----------|--------|
-| English (EN-US) | ✅ Complete |
-| Português BR (PT-BR) | ✅ Complete |
-| Others | Contributions welcome! |
+- 14 Nether kill requirements.
+- 9 End kill requirements.
+- Example item and advancement entries that are disabled by design.
+- Magma cream as a Nether bypass item.
+- Chorus fruit as an End bypass item.
 
-### How to Contribute a Translation
-
-1. Fork the GitHub repository
-2. Edit `src/main/resources/assets/dynamicportals/lang/xx_yy.json`
-3. Submit a Pull Request (PR)
-4. Will be merged quickly!
+Server owners can replace, remove, or expand all defaults.
 
 ---
 
-## ❓ FAQ
+## 8. Party System
 
-**Q: Can I use this mod on my multiplayer server?**  
-A: Yes! The mod was developed specifically for multiplayer servers with integrated Party System.
+Parties are passwordless and use short invite codes.
 
-**Q: Is it compatible with other mods?**  
-A: Yes! You can add requirements for any mob or item from any mod. Just add it to the TOML config.
+Core flow:
 
-**Q: Can I disable success sounds?**  
-A: Yes! Edit `dynamicportals-common.toml` and set `enableSuccessSound = false`
+```txt
+/dp party create
+/dp party join <code>
+/dp party leave
+/dp party info
+```
 
-**Q: How do I reset my progress?**  
-A: Delete the `dynamicportals` key from your player NBT file or use NBT editor commands. Admin can use `/data remove entity @s` if needed.
+Party behavior:
 
-**Q: What's the member limit in a party?**  
-A: Maximum 8 members per party. You can create multiple parties!
+- Codes are 5 characters long.
+- Codes use clear uppercase letters and numbers.
+- A party can have up to 8 members.
+- The leader can dissolve the party.
+- If the leader leaves and members remain, leadership transfers.
+- If the last member leaves, the party is deleted.
 
-**Q: Can I edit the config while the server is running?**  
-A: Yes! Edit the TOML and execute `/reload` in-game (requires permission).
-
-**Q: How do I contribute translations?**  
-A: See the "Localization" section above.
-
-**Q: Found a bug. How do I report it?**  
-A: GitHub Issues on the official repository.
-
-**Q: Can I use requirements for specific items (e.g., Enchanted Sword)?**  
-A: Currently only basic resource location (minecraft:diamond_sword). Future versions plan support for specific enchantments.
+The Hub Party tab provides the same core flow visually.
 
 ---
 
-## 🎯 Future Roadmap
+## 9. Persistent Shared Party Progress
 
-- 🔄 Automatic progress sync for offline party members
-- 📊 Advanced party statistics (total kills, items collected, etc)
-- 🎁 Reward system for unlocking portals
-- 🔐 Granular permissions for party members
-- 🌍 Support for more languages (español, français, deutsch, etc)
+Party progress is saved directly on the party, not calculated only from online players.
+
+When a party member progresses:
+
+- Individual player progress is still updated.
+- Party progress is also updated.
+- Hub, Details, `/dp check`, and portal access use party progress while the player remains in that party.
+
+Example:
+
+1. Player X creates a party.
+2. Player Y joins.
+3. X kills 1 Zombie.
+4. Y kills 1 Zombie.
+5. The party has 2 Zombie kills.
+6. Y logs out.
+7. X kills another Zombie.
+8. The party has 3 Zombie kills.
+9. X logs out.
+10. Y returns and still sees 3 party Zombie kills.
+
+If a player leaves the party, they stop using that shared party progress and return to their own individual progression.
 
 ---
 
-## 📝 Credits
+## 10. Commands
 
-- **Framework**: NeoForge
-- **Build System**: Gradle
-- **Mappings**: Parchment
+### Progress Commands
+
+```txt
+/dp check
+/dp check help
+/dp check summary [page]
+/dp check pending [page]
+/dp check <dimension>
+/dp check <dimension> summary [page]
+/dp check <dimension> pending [page]
+/dp check <dimension> <page>
+```
+
+Common aliases include:
+
+```txt
+nether
+end
+the_nether
+the_end
+overworld
+```
+
+### Party Commands
+
+```txt
+/dp party create
+/dp party join <code>
+/dp party leave
+/dp party members
+/dp party info
+/dp party dissolve
+```
+
+### Debug Commands
+
+Debug commands require permission level 2.
+
+```txt
+/dp debug complete <dimension> [targets]
+/dp debug reset
+/dp debug reset <dimension|all>
+/dp debug reset <dimension|all> <targets>
+/dp debug sword <targets> [count]
+```
+
+`/dp debug complete` fills real Dynamic Portals progress for the selected dimension. It does not use a fake bypass.
+
+`/dp debug reset` clears Dynamic Portals progress so players or parties can test progression again.
+
+`/dp debug sword` gives the tester wooden sword, a vanilla-style wooden sword with extremely high base damage for testing kill requirements.
 
 ---
 
-**Need help?** Check [GitHub Issues](https://github.com/seu-usuario/dynamic-portals) or join our community!
+## 11. Debug Complete
+
+Command:
+
+```txt
+/dp debug complete <dimension> [targets]
+```
+
+Behavior:
+
+- Completes the selected active dimension rule.
+- Adds only the missing kill/item delta.
+- Marks configured advancements in Dynamic Portals progress.
+- Marks completed requirements in the same stores used by gameplay.
+- If the target is in a party, it also completes the shared party progress.
+- Multiple targets in the same party do not duplicate party progress beyond what is needed.
+
+Console or command blocks must provide targets.
+
+---
+
+## 12. Debug Reset
+
+Commands:
+
+```txt
+/dp debug reset
+/dp debug reset all
+/dp debug reset nether
+/dp debug reset <dimension|all> <targets>
+```
+
+Behavior:
+
+- Clears saved Dynamic Portals progress.
+- Can reset all dimensions or a single dimension.
+- Resets affected party progress once per party.
+- Does not remove party membership, party code, leader, or members.
+- Does not remove items, revoke vanilla advancements, or change vanilla stats.
+- Item requirements use the current inventory as the new baseline after reset, avoiding instant recount from items already held.
+
+---
+
+## 13. Custom Mob Head Icons
+
+Kill requirements can show custom PNG head icons in the Hub Details screen.
+
+Path format:
+
+```txt
+assets/dynamicportals/textures/gui/mob_heads/<namespace>/<path>.png
+```
+
+Examples:
+
+```txt
+minecraft:zombie
+assets/dynamicportals/textures/gui/mob_heads/minecraft/zombie.png
+
+some_mod:bosses/fire_golem
+assets/dynamicportals/textures/gui/mob_heads/some_mod/bosses/fire_golem.png
+```
+
+Recommended image format:
+
+- PNG.
+- 32x32 pixels.
+- Transparent background when possible.
+- Face centered in the full canvas.
+
+The HUD renders the full 32x32 image scaled down to the UI size. Missing icons use a fallback square with the mob initial.
+
+See [MOB_HEAD_ASSETS.md](MOB_HEAD_ASSETS.md) for the full asset guide.
+
+---
+
+## 14. Data Model Overview
+
+Individual player progress is stored on player persistent data.
+
+Tracked individual data includes:
+
+- Kill counters.
+- Item counters.
+- Advancement flags.
+- Portal unlocked flags.
+- Individual bypass unlocked flags.
+- Completed requirement flags.
+- Inventory snapshots for item tracking.
+- Current party ID.
+
+Party data is stored as world `SavedData`.
+
+Tracked party data includes:
+
+- Party ID.
+- Current leader/creator.
+- 5-character invite code.
+- Members.
+- Shared kill counters.
+- Shared item counters.
+- Shared advancement flags.
+- Shared completed requirement flags.
+
+Legacy password metadata may still load from old worlds, but new parties are passwordless.
+
+---
+
+## 15. Event Flow
+
+Typical kill requirement flow:
+
+1. A player kills an entity.
+2. The mod checks active portal definitions.
+3. If that entity is a configured kill target, individual progress increases.
+4. If the player is in a party, party progress also increases.
+5. Completed requirements are marked.
+6. Portal status is evaluated.
+7. Chat, sound, Hub, and portal access reflect the updated state.
+
+Portal travel flow:
+
+1. A player attempts to enter a configured destination.
+2. The mod evaluates party progress if the player is in a party.
+3. Otherwise, it evaluates individual progress.
+4. If unlocked, travel proceeds.
+5. If blocked, travel is canceled and feedback is shown.
+
+---
+
+## 16. Installation
+
+1. Install NeoForge for Minecraft 1.21.1.
+2. Place the Dynamic Portals jar in the `mods` folder.
+3. Start the server/client once to generate the config.
+4. Edit `config/dynamicportals-common.toml` if desired.
+5. Restart or reload as needed.
+
+The mod is allowed in modpacks.
+
+---
+
+## 17. FAQ
+
+**Can I use this on multiplayer servers?**
+Yes. The mod is built with multiplayer and parties in mind.
+
+**Do parties require passwords?**
+No. Parties now use short 5-character invite codes.
+
+**Does party progress work with offline members?**
+Yes. Party progress is saved directly to the party.
+
+**What happens when I leave a party?**
+You stop using shared party progress and return to your own individual progress.
+
+**Can I add mobs from other mods?**
+Yes. If the mob is registered in the loaded game, the rule becomes active. If not, it stays inactive.
+
+**Can typos in the TOML create impossible requirements?**
+No. Invalid or missing entity/item IDs are ignored at runtime.
+
+**Can I reset progress for testing?**
+Yes. Use `/dp debug reset` with permission level 2.
+
+**Can I complete requirements for testing?**
+Yes. Use `/dp debug complete <dimension> [targets]`.
+
+---
+
+## 18. Localization
+
+Included languages:
+
+- English (US)
+- Brazilian Portuguese
+
+Community translations are welcome.
+
+---
+
+## 19. Related Files
+
+- [README.md](README.md): short CurseForge-style overview.
+- [MOB_HEAD_ASSETS.md](MOB_HEAD_ASSETS.md): custom mob head asset guide.
+- `config/dynamicportals-common.toml`: generated gameplay config.

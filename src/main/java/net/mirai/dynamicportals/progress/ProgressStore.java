@@ -1,5 +1,7 @@
 package net.mirai.dynamicportals.progress;
 
+import java.util.ArrayList;
+import java.util.List;
 import net.mirai.dynamicportals.DynamicPortals;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
@@ -86,6 +88,27 @@ public final class ProgressStore {
         namedTag(player, INVENTORY_SNAPSHOT).putInt(itemId, count);
     }
 
+    public static void resetAll(ServerPlayer player) {
+        CompoundTag root = rootTag(player);
+        root.remove(KILLS);
+        root.remove(ITEMS);
+        root.remove(ADVANCEMENTS);
+        root.remove(UNLOCKED);
+        root.remove(BYPASS_UNLOCKED);
+        root.remove(COMPLETED);
+        root.remove(INVENTORY_SNAPSHOT);
+    }
+
+    public static void resetDimension(ServerPlayer player, String dimension) {
+        String dimensionPrefix = dimension + "|";
+        removeKeysStartingWith(namedTag(player, KILLS), dimensionPrefix);
+        removeKeysStartingWith(namedTag(player, ITEMS), dimensionPrefix);
+        removeKeysStartingWith(namedTag(player, ADVANCEMENTS), dimensionPrefix);
+        namedTag(player, UNLOCKED).remove(dimension);
+        namedTag(player, BYPASS_UNLOCKED).remove(dimension);
+        removeCompletedKeysForDimension(namedTag(player, COMPLETED), dimension);
+    }
+
     public static java.util.UUID getPartyId(ServerPlayer player) {
         CompoundTag root = rootTag(player);
         if (root.hasUUID(PARTY_ID)) {
@@ -136,5 +159,30 @@ public final class ProgressStore {
 
     private static String key(String dimension, String target) {
         return dimension + "|" + target;
+    }
+
+    private static void removeKeysStartingWith(CompoundTag tag, String prefix) {
+        List<String> toRemove = new ArrayList<>();
+        for (String key : tag.getAllKeys()) {
+            if (key.startsWith(prefix)) {
+                toRemove.add(key);
+            }
+        }
+        for (String key : toRemove) {
+            tag.remove(key);
+        }
+    }
+
+    private static void removeCompletedKeysForDimension(CompoundTag tag, String dimension) {
+        List<String> toRemove = new ArrayList<>();
+        String marker = "|" + dimension + "|";
+        for (String key : tag.getAllKeys()) {
+            if (key.contains(marker)) {
+                toRemove.add(key);
+            }
+        }
+        for (String key : toRemove) {
+            tag.remove(key);
+        }
     }
 }

@@ -3,8 +3,10 @@ package net.mirai.dynamicportals.events;
 import net.mirai.dynamicportals.chat.ProgressNotifier;
 import net.mirai.dynamicportals.config.PortalDefinition;
 import net.mirai.dynamicportals.config.PortalRules;
+import net.mirai.dynamicportals.party.PartyStore;
 import net.mirai.dynamicportals.progress.ProgressStore;
 import net.mirai.dynamicportals.requirements.RequirementEngine;
+import java.util.UUID;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -37,8 +39,13 @@ public class ProgressEvents {
                 continue;
             }
 
+            UUID partyId = PartyStore.getPlayerParty(player);
             int current = ProgressStore.addKill(player, definition.destinationDimension(), entityId, 1);
-            completeRequirementIfNeeded(player, definition.destinationDimension(), "kill", entityId, current, required);
+            completeRequirementIfNeeded(player, definition.destinationDimension(), "kill", entityId, current, required, partyId == null);
+            if (partyId != null) {
+                int partyCurrent = PartyStore.addPartyKill(player, partyId, definition.destinationDimension(), entityId, 1);
+                completePartyRequirementIfNeeded(player, partyId, definition.destinationDimension(), "kill", entityId, partyCurrent, required);
+            }
             unlockPortalIfReady(player, definition);
         }
     }
@@ -62,8 +69,13 @@ public class ProgressEvents {
                 int snapshot = ProgressStore.getInventorySnapshot(player, itemId);
                 if (inventoryCount > snapshot) {
                     int gained = inventoryCount - snapshot;
+                    UUID partyId = PartyStore.getPlayerParty(player);
                     int current = ProgressStore.addItem(player, definition.destinationDimension(), itemId, gained);
-                    completeRequirementIfNeeded(player, definition.destinationDimension(), "item", itemId, current, required);
+                    completeRequirementIfNeeded(player, definition.destinationDimension(), "item", itemId, current, required, partyId == null);
+                    if (partyId != null) {
+                        int partyCurrent = PartyStore.addPartyItem(player, partyId, definition.destinationDimension(), itemId, gained);
+                        completePartyRequirementIfNeeded(player, partyId, definition.destinationDimension(), "item", itemId, partyCurrent, required);
+                    }
                     unlockPortalIfReady(player, definition);
                 }
                 ProgressStore.setInventorySnapshot(player, itemId, inventoryCount);
@@ -89,7 +101,11 @@ public class ProgressEvents {
                 continue;
             }
 
-            completeRequirementIfNeeded(player, definition.destinationDimension(), "adv", advancementId, 1, 1);
+            UUID partyId = PartyStore.getPlayerParty(player);
+            completeRequirementIfNeeded(player, definition.destinationDimension(), "adv", advancementId, 1, 1, partyId == null);
+            if (partyId != null && PartyStore.markPartyAdvancement(player, partyId, definition.destinationDimension(), advancementId)) {
+                completePartyRequirementIfNeeded(player, partyId, definition.destinationDimension(), "adv", advancementId, 1, 1);
+            }
             unlockPortalIfReady(player, definition);
         }
     }
@@ -194,7 +210,8 @@ public class ProgressEvents {
         String type,
         String targetId,
         int current,
-        int required
+        int required,
+        boolean notify
     ) {
         if (current < required) {
             return;
@@ -206,6 +223,30 @@ public class ProgressEvents {
         }
 
         ProgressStore.markRequirementCompleted(player, key);
+        if (notify) {
+            ProgressNotifier.requirementCompleted(player, dimension, type, targetId);
+        }
+    }
+
+    private static void completePartyRequirementIfNeeded(
+        ServerPlayer player,
+        UUID partyId,
+        String dimension,
+        String type,
+        String targetId,
+        int current,
+        int required
+    ) {
+        if (current < required) {
+            return;
+        }
+
+        String key = type + "|" + dimension + "|" + targetId;
+        if (PartyStore.isPartyRequirementCompleted(player, partyId, key)) {
+            return;
+        }
+
+        PartyStore.markPartyRequirementCompleted(player, partyId, key);
         ProgressNotifier.requirementCompleted(player, dimension, type, targetId);
     }
 

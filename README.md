@@ -1,103 +1,60 @@
+![Dynamic Portals Banner](./BANNER.png)
+# Dynamic Portals 🚪
+**Dynamic Portals** turns portal access into real progression for Minecraft **1.21.1 NeoForge**.
 
-![Banner](./BANNER.png)
-
-Locking portals behind adventures! **Dynamic Portals** is the mod you need to transform your portals into epic quests.
-
----
-
-## 🎯 What Is It?
-
-Tired of portals open from spawn? Create a server with **real progression**. Killed 10 Zombies? Earn access to the Nether. Got that special item? The End awaits you.
-
-The mod offers a complete system of configurable requirements (kill mobs, collect items, complete achievements) that lock dimensional portal access. Integrated **Party System** lets friends share progress and advance together!
+Lock the Nether, the End, or custom dimensions behind configurable goals: kill mobs, gather items, complete advancements, or use optional bypass items. Built for survival servers, modpacks, and players who want portals to feel earned.
 
 ---
 
-## ✨ Key Features
-
-### 🔐 Progressive Requirements
-- **Multiple types**: Kill mobs, collect items, complete achievements
-- **Fully customizable**: Edit via TOML without recompiling
-- **Full mod support**: Any mob or item from any mod
-
-### 👥 Party System (Multiplayer)
-- Create password-protected parties
-- Share progress with friends
-- Get notified when members advance
-
-### 💬 Real-time Feedback
-- Chat notifications for every achievement
-- Satisfying completion sounds
-- Public unlock announcements
-- Fully configurable
-
-### 🧭 Progress + Party Hub (New in 2.1.0)
-- Moved from chat-only flow to a dedicated in-game Hub UI
-- Two focused tabs: Progress and Party
-- Portal cards with status, summaries, and requirement details
-- Built-in party actions (create, join, leave, dissolve) with live feedback
-- Responsive layout designed for different GUI scales and window sizes
-
-### 🎮 Intuitive Commands
-```bash
-/dp check               # View your progress
-/dp check detailed      # Detailed mode with %
-/dp party create    # Create party
-/dp party join cod  # Join party
-```
+## Highlights ✨
+- **Configurable progression:** kill, item, advancement, and bypass requirements.
+- **Progress Hub UI:** portal cards, progress bars, details, and mob head icons.
+- **Simple parties:** create a party, share a 5-character code, and progress together.
+- **Saved party progress:** offline members keep benefiting from group progress.
+- **Modpack-friendly rules:** missing modded mobs/items stay inactive instead of blocking portals.
+- **Chat feedback and sounds:** clear progress, completion, and unlock moments.
+- **Admin debug tools:** complete or reset real progression for testing.
 
 ---
 
-## 🚀 Getting Started
+## Progress Hub 🧭
+Open the Hub with **H** by default.
 
-### Quick Installation
-1. Download from CurseForge
-2. Drop into `mods/` folder
-3. Start your server/client
-
-**Done!** The mod comes with default config that works immediately.
-
-### Customize (Optional)
-Edit `config/dynamicportals-common.toml` to:
-- Change requirements
-- Disable sounds or notifications
-- Add custom mobs/items
-
-No recompilation needed! Just edit, save, and `/reload`.
+Track portal access, inspect missing requirements, check detailed counters, and manage party progression from one clean in-game screen. Kill requirements can display custom PNG mob faces in the Details view.
 
 ---
 
-## 📖 Documentation
+## Party Play 👥
+- `/dp party create`
+- `/dp party join <code>`
+- `/dp party leave`
+- `/dp party info`
 
-**Want to know more details?**
-
-- 🎮 **[DOCUMENTATION.md](DOCUMENTATION.md)** - Complete guide with all commands, configuration, and architecture
-
-There you'll find:
-- Step-by-step tutorial for players
-- Advanced TOML configuration examples
-- Detailed command reference
-- Technical architecture explanation
-- FAQ answering common questions
+Party progress is stored in the party itself. If one member keeps playing while another is offline, the returning member will still see the shared progress.
 
 ---
 
-## 🌐 Support
+## Configuration ⚙️
+Generated config: `config/dynamicportals-common.toml`
 
-### Languages
-- 🇧🇷 Português Brasileiro
-- 🇺🇸 English (US)
-- *Want to add another language?* Make a PR on GitHub!
+Requirement formats:
+- `destination_dimension|entity_id|count`
+- `destination_dimension|item_id|count`
+- `destination_dimension|advancement_id`
 
-### Need Help?
-- 🐛 Found a bug? [GitHub Issues](https://github.com/seu-usuario/dynamic-portals)
-- 💬 Questions? See [DOCUMENTATION.md](DOCUMENTATION.md)
-- 🤝 Want to contribute? PRs welcome!
+You can add vanilla or modded mobs, items, advancements, and dimensions. If a referenced mob or item is not loaded, that rule simply stays inactive.
 
 ---
 
-## ⚖️ License
+## Useful Commands 🛠️
+- `/dp check`
+- `/dp check <dimension>`
+- `/dp check pending`
+- `/dp debug complete <dimension> [targets]`
+- `/dp debug reset [dimension|all] [targets]`
 
-MIT License - Use freely in your projects or Modpacks!
+Debug commands require permission level 2.
 
+✅Full Mod Guide: [Documentation.md](Documentation.md)
 ---
+**🐛 Issues / Bugs ? ->** [https://github.com/II-mirai-II/Soul-Debt/issues](https://github.com/II-mirai-II/Soul-Debt/issues)

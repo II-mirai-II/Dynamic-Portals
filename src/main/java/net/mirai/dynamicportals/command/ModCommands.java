@@ -5,12 +5,20 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.suggestion.Suggestions;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import net.mirai.dynamicportals.config.PortalDefinition;
 import net.mirai.dynamicportals.config.PortalRules;
 import net.mirai.dynamicportals.item.ModItems;
@@ -18,10 +26,13 @@ import net.mirai.dynamicportals.party.PartyStore;
 import net.mirai.dynamicportals.progress.ProgressStore;
 import net.mirai.dynamicportals.requirements.RequirementEngine;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -34,6 +45,7 @@ public class ModCommands {
     private static final String ALIAS_NETHER = "minecraft:the_nether";
     private static final String ALIAS_END = "minecraft:the_end";
     private static final String ALIAS_OVERWORLD = "minecraft:overworld";
+    private static final String DEBUG_RESET_ALL = "all";
 
     private enum CheckOutputMode {
         COMPACT,
@@ -41,6 +53,21 @@ public class ModCommands {
     }
 
     private record PortalView(PortalDefinition definition, RequirementEngine.PortalStatus status) {
+    }
+
+    private static final class DebugCompletionStats {
+        private int killsAdded;
+        private int itemsAdded;
+        private int advancementsMarked;
+
+        private void add(DebugCompletionStats other) {
+            killsAdded += other.killsAdded;
+            itemsAdded += other.itemsAdded;
+            advancementsMarked += other.advancementsMarked;
+        }
+    }
+
+    private record DebugResetScope(boolean all, String dimension, String displayName, List<PortalDefinition> definitions) {
     }
 
     @SubscribeEvent
@@ -126,6 +153,25 @@ public class ModCommands {
     private com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> buildDebugCommand() {
         return Commands.literal("debug")
             .requires(source -> source.hasPermission(2))
+            .then(Commands.literal("complete")
+                .then(Commands.argument("dimension", StringArgumentType.word())
+                    .suggests(ModCommands::suggestPortalDimensions)
+                    .executes(this::completeDebugSelf)
+                    .then(Commands.argument("targets", EntityArgument.players())
+                        .executes(this::completeDebugTargets)
+                    )
+                )
+            )
+            .then(Commands.literal("reset")
+                .executes(this::resetDebugSelfAll)
+                .then(Commands.argument("scope", StringArgumentType.word())
+                    .suggests(ModCommands::suggestResetScopes)
+                    .executes(this::resetDebugSelf)
+                    .then(Commands.argument("targets", EntityArgument.players())
+                        .executes(this::resetDebugTargets)
+                    )
+                )
+            )
             .then(Commands.literal("sword")
                 .then(Commands.argument("targets", EntityArgument.players())
                     .executes(context -> giveSword(context, 1))
@@ -133,7 +179,272 @@ public class ModCommands {
                         .executes(context -> giveSword(context, IntegerArgumentType.getInteger(context, "count")))
                     )
                 )
+        );
+    }
+
+    private int resetDebugSelfAll(CommandContext<CommandSourceStack> context) {
+        return resetDebugSelf(context, DEBUG_RESET_ALL);
+    }
+
+    private int resetDebugSelf(CommandContext<CommandSourceStack> context) {
+        return resetDebugSelf(context, StringArgumentType.getString(context, "scope"));
+    }
+
+    private int resetDebugSelf(CommandContext<CommandSourceStack> context, String scopeInput) {
+        if (!(context.getSource().getEntity() instanceof ServerPlayer player)) {
+            context.getSource().sendSuccess(
+                () -> Component.translatable("dynamicportals.command.debug.reset.requires_target")
+                    .withStyle(ChatFormatting.RED),
+                false
             );
+            return 0;
+        }
+
+        return resetDebug(context, scopeInput, List.of(player));
+    }
+
+    private int resetDebugTargets(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        return resetDebug(context, StringArgumentType.getString(context, "scope"), EntityArgument.getPlayers(context, "targets"));
+    }
+
+    private int resetDebug(CommandContext<CommandSourceStack> context, String scopeInput, Collection<ServerPlayer> targets) {
+        DebugResetScope scope = resolveResetScope(scopeInput);
+        if (scope == null) {
+            String available = buildAvailableDimensions();
+            context.getSource().sendSuccess(
+                () -> Component.translatable("dynamicportals.command.debug.reset.invalid_dimension", scopeInput, available)
+                    .withStyle(ChatFormatting.RED),
+                false
+            );
+            return 0;
+        }
+
+        Set<String> baselineItemIds = collectItemRequirementIds(scope.definitions());
+        Set<UUID> resetPartyIds = new HashSet<>();
+        for (ServerPlayer target : targets) {
+            if (scope.all()) {
+                ProgressStore.resetAll(target);
+            } else {
+                ProgressStore.resetDimension(target, scope.dimension());
+            }
+            baselineInventorySnapshots(target, baselineItemIds);
+
+            UUID partyId = PartyStore.getPlayerParty(target);
+            if (partyId != null && resetPartyIds.add(partyId)) {
+                if (scope.all()) {
+                    PartyStore.resetPartyProgress(target, partyId);
+                } else {
+                    PartyStore.resetPartyProgressForDimension(target, partyId, scope.dimension());
+                }
+            }
+        }
+
+        int playerCount = targets.size();
+        int partyCount = resetPartyIds.size();
+        if (scope.all()) {
+            context.getSource().sendSuccess(
+                () -> Component.translatable("dynamicportals.command.debug.reset.success_all", playerCount, partyCount)
+                    .withStyle(ChatFormatting.GREEN),
+                true
+            );
+        } else {
+            context.getSource().sendSuccess(
+                () -> Component.translatable("dynamicportals.command.debug.reset.success_dimension", scope.displayName(), playerCount, partyCount)
+                    .withStyle(ChatFormatting.GREEN),
+                true
+            );
+        }
+        return playerCount;
+    }
+
+    private int completeDebugSelf(CommandContext<CommandSourceStack> context) {
+        if (!(context.getSource().getEntity() instanceof ServerPlayer player)) {
+            context.getSource().sendSuccess(
+                () -> Component.translatable("dynamicportals.command.debug.complete.requires_target")
+                    .withStyle(ChatFormatting.RED),
+                false
+            );
+            return 0;
+        }
+
+        return completeDebug(context, List.of(player));
+    }
+
+    private int completeDebugTargets(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        return completeDebug(context, EntityArgument.getPlayers(context, "targets"));
+    }
+
+    private int completeDebug(CommandContext<CommandSourceStack> context, Collection<ServerPlayer> targets) {
+        String input = StringArgumentType.getString(context, "dimension");
+        String normalizedDimension = normalizeDimensionFilter(input);
+        List<PortalDefinition> definitions = selectDefinitions(normalizedDimension);
+        if (definitions.isEmpty()) {
+            String available = buildAvailableDimensions();
+            context.getSource().sendSuccess(
+                () -> Component.translatable("dynamicportals.command.debug.complete.invalid_dimension", input, available)
+                    .withStyle(ChatFormatting.RED),
+                false
+            );
+            return 0;
+        }
+
+        PortalDefinition definition = definitions.getFirst();
+        DebugCompletionStats stats = new DebugCompletionStats();
+        Set<UUID> completedPartyIds = new HashSet<>();
+        for (ServerPlayer target : targets) {
+            stats.add(completeIndividualRequirements(target, definition));
+
+            UUID partyId = PartyStore.getPlayerParty(target);
+            if (partyId != null && completedPartyIds.add(partyId)) {
+                stats.add(completePartyRequirements(target, partyId, definition));
+            }
+        }
+
+        int playerCount = targets.size();
+        context.getSource().sendSuccess(
+            () -> Component.translatable(
+                "dynamicportals.command.debug.complete.success",
+                definition.displayName(),
+                playerCount,
+                stats.killsAdded,
+                stats.itemsAdded,
+                stats.advancementsMarked
+            ).withStyle(ChatFormatting.GREEN),
+            true
+        );
+        return playerCount;
+    }
+
+    private static DebugCompletionStats completeIndividualRequirements(ServerPlayer player, PortalDefinition definition) {
+        DebugCompletionStats stats = new DebugCompletionStats();
+        String dimension = definition.destinationDimension();
+
+        for (var entry : definition.killRequirements().entrySet()) {
+            String entityId = entry.getKey();
+            int required = entry.getValue();
+            int current = ProgressStore.getKillCount(player, dimension, entityId);
+            int delta = Math.max(0, required - current);
+            if (delta > 0) {
+                ProgressStore.addKill(player, dimension, entityId, delta);
+                stats.killsAdded += delta;
+            }
+            ProgressStore.markRequirementCompleted(player, requirementKey("kill", dimension, entityId));
+        }
+
+        for (var entry : definition.itemRequirements().entrySet()) {
+            String itemId = entry.getKey();
+            int required = entry.getValue();
+            int current = ProgressStore.getItemCount(player, dimension, itemId);
+            int delta = Math.max(0, required - current);
+            if (delta > 0) {
+                ProgressStore.addItem(player, dimension, itemId, delta);
+                stats.itemsAdded += delta;
+            }
+            ProgressStore.markRequirementCompleted(player, requirementKey("item", dimension, itemId));
+        }
+
+        for (String advancementId : definition.advancementRequirements()) {
+            if (ProgressStore.markAdvancement(player, dimension, advancementId)) {
+                stats.advancementsMarked++;
+            }
+            ProgressStore.markRequirementCompleted(player, requirementKey("adv", dimension, advancementId));
+        }
+
+        RequirementEngine.evaluate(player, definition);
+        return stats;
+    }
+
+    private static DebugCompletionStats completePartyRequirements(ServerPlayer player, UUID partyId, PortalDefinition definition) {
+        DebugCompletionStats stats = new DebugCompletionStats();
+        String dimension = definition.destinationDimension();
+
+        for (var entry : definition.killRequirements().entrySet()) {
+            String entityId = entry.getKey();
+            int required = entry.getValue();
+            int current = PartyStore.getPartyKillCount(player, partyId, dimension, entityId);
+            int delta = Math.max(0, required - current);
+            if (delta > 0) {
+                PartyStore.addPartyKill(player, partyId, dimension, entityId, delta);
+                stats.killsAdded += delta;
+            }
+            PartyStore.markPartyRequirementCompleted(player, partyId, requirementKey("kill", dimension, entityId));
+        }
+
+        for (var entry : definition.itemRequirements().entrySet()) {
+            String itemId = entry.getKey();
+            int required = entry.getValue();
+            int current = PartyStore.getPartyItemCount(player, partyId, dimension, itemId);
+            int delta = Math.max(0, required - current);
+            if (delta > 0) {
+                PartyStore.addPartyItem(player, partyId, dimension, itemId, delta);
+                stats.itemsAdded += delta;
+            }
+            PartyStore.markPartyRequirementCompleted(player, partyId, requirementKey("item", dimension, itemId));
+        }
+
+        for (String advancementId : definition.advancementRequirements()) {
+            if (PartyStore.markPartyAdvancement(player, partyId, dimension, advancementId)) {
+                stats.advancementsMarked++;
+            }
+            PartyStore.markPartyRequirementCompleted(player, partyId, requirementKey("adv", dimension, advancementId));
+        }
+
+        RequirementEngine.evaluateParty(player, definition);
+        return stats;
+    }
+
+    private static String requirementKey(String type, String dimension, String targetId) {
+        return type + "|" + dimension + "|" + targetId;
+    }
+
+    private static DebugResetScope resolveResetScope(String scopeInput) {
+        String normalized = scopeInput == null ? DEBUG_RESET_ALL : scopeInput.trim().toLowerCase(Locale.ROOT);
+        if (normalized.isEmpty() || DEBUG_RESET_ALL.equals(normalized)) {
+            return new DebugResetScope(true, null, DEBUG_RESET_ALL, List.copyOf(PortalRules.all()));
+        }
+
+        String normalizedDimension = normalizeDimensionFilter(normalized);
+        List<PortalDefinition> definitions = selectDefinitions(normalizedDimension);
+        if (definitions.isEmpty()) {
+            return null;
+        }
+
+        PortalDefinition definition = definitions.getFirst();
+        return new DebugResetScope(false, definition.destinationDimension(), definition.displayName(), definitions);
+    }
+
+    private static Set<String> collectItemRequirementIds(List<PortalDefinition> definitions) {
+        Set<String> itemIds = new LinkedHashSet<>();
+        for (PortalDefinition definition : definitions) {
+            itemIds.addAll(definition.itemRequirements().keySet());
+        }
+        return itemIds;
+    }
+
+    private static void baselineInventorySnapshots(ServerPlayer player, Set<String> itemIds) {
+        for (String itemId : itemIds) {
+            ProgressStore.setInventorySnapshot(player, itemId, countInInventory(player, itemId));
+        }
+    }
+
+    private static int countInInventory(ServerPlayer player, String itemId) {
+        int total = 0;
+        for (ItemStack stack : player.getInventory().items) {
+            if (!stack.isEmpty() && itemId.equals(itemId(stack))) {
+                total += stack.getCount();
+            }
+        }
+        for (ItemStack stack : player.getInventory().offhand) {
+            if (!stack.isEmpty() && itemId.equals(itemId(stack))) {
+                total += stack.getCount();
+            }
+        }
+        return total;
+    }
+
+    private static String itemId(ItemStack stack) {
+        ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        return key == null ? "" : key.toString();
     }
 
     private int checkSelf(
@@ -347,7 +658,7 @@ public class ModCommands {
             return appendCompactPortalLines(lines, definition, effectiveStatus, maxLines);
         }
 
-        return appendDetailedPortalLines(lines, player, definition, pendingOnly, maxLines);
+        return appendDetailedPortalLines(lines, definition, effectiveStatus, pendingOnly, maxLines);
     }
 
     private boolean appendCompactPortalLines(
@@ -387,17 +698,18 @@ public class ModCommands {
 
     private boolean appendDetailedPortalLines(
         List<Component> lines,
-        ServerPlayer player,
         PortalDefinition definition,
+        RequirementEngine.PortalStatus status,
         boolean pendingOnly,
         int maxLines
     ) {
         int before = lines.size();
+        Map<String, Integer> currentValues = currentValuesFromStatus(status);
 
         for (var entry : definition.killRequirements().entrySet()) {
             String entityId = entry.getKey();
             int required = entry.getValue();
-            int current = ProgressStore.getKillCount(player, definition.destinationDimension(), entityId);
+            int current = currentValues.getOrDefault("kill|" + entityId, required);
             if (pendingOnly && current >= required) {
                 continue;
             }
@@ -415,7 +727,7 @@ public class ModCommands {
         for (var entry : definition.itemRequirements().entrySet()) {
             String itemId = entry.getKey();
             int required = entry.getValue();
-            int current = ProgressStore.getItemCount(player, definition.destinationDimension(), itemId);
+            int current = currentValues.getOrDefault("item|" + itemId, required);
             if (pendingOnly && current >= required) {
                 continue;
             }
@@ -431,7 +743,7 @@ public class ModCommands {
         }
 
         for (String advancementId : definition.advancementRequirements()) {
-            boolean done = ProgressStore.hasAdvancement(player, definition.destinationDimension(), advancementId);
+            boolean done = currentValues.getOrDefault("adv|" + advancementId, 1) >= 1;
             if (pendingOnly && done) {
                 continue;
             }
@@ -452,6 +764,21 @@ public class ModCommands {
         }
 
         return true;
+    }
+
+    private static Map<String, Integer> currentValuesFromStatus(RequirementEngine.PortalStatus status) {
+        Map<String, Integer> values = new HashMap<>();
+        for (String raw : status.missingEntries()) {
+            String[] parts = raw.split("\\|", 4);
+            if (parts.length != 4) {
+                continue;
+            }
+            try {
+                values.put(parts[0] + "|" + parts[1], Integer.parseInt(parts[2]));
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return values;
     }
 
     private static boolean addLine(List<Component> lines, Component line, int maxLines) {
@@ -538,6 +865,63 @@ public class ModCommands {
             return definition.destinationDimension();
         }
         return "minecraft:the_nether";
+    }
+
+    private static CompletableFuture<Suggestions> suggestPortalDimensions(
+        CommandContext<CommandSourceStack> context,
+        SuggestionsBuilder builder
+    ) {
+        Set<String> suggestions = new LinkedHashSet<>();
+        for (PortalDefinition definition : PortalRules.all()) {
+            String dimension = definition.destinationDimension();
+            suggestions.add(dimension);
+            switch (dimension) {
+                case ALIAS_NETHER -> {
+                    suggestions.add("nether");
+                    suggestions.add("the_nether");
+                }
+                case ALIAS_END -> {
+                    suggestions.add("end");
+                    suggestions.add("the_end");
+                }
+                case ALIAS_OVERWORLD -> {
+                    suggestions.add("overworld");
+                    suggestions.add("world");
+                }
+                default -> {
+                }
+            }
+        }
+        return SharedSuggestionProvider.suggest(suggestions, builder);
+    }
+
+    private static CompletableFuture<Suggestions> suggestResetScopes(
+        CommandContext<CommandSourceStack> context,
+        SuggestionsBuilder builder
+    ) {
+        Set<String> suggestions = new LinkedHashSet<>();
+        suggestions.add(DEBUG_RESET_ALL);
+        for (PortalDefinition definition : PortalRules.all()) {
+            String dimension = definition.destinationDimension();
+            suggestions.add(dimension);
+            switch (dimension) {
+                case ALIAS_NETHER -> {
+                    suggestions.add("nether");
+                    suggestions.add("the_nether");
+                }
+                case ALIAS_END -> {
+                    suggestions.add("end");
+                    suggestions.add("the_end");
+                }
+                case ALIAS_OVERWORLD -> {
+                    suggestions.add("overworld");
+                    suggestions.add("world");
+                }
+                default -> {
+                }
+            }
+        }
+        return SharedSuggestionProvider.suggest(suggestions, builder);
     }
 
     private static String normalizeDimensionFilter(String dimensionFilter) {

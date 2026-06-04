@@ -10,6 +10,7 @@ import net.mirai.dynamicportals.network.HubNetworkHandler;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
 
@@ -22,11 +23,16 @@ public class DynamicPortals {
         modContainer.registerConfig(net.neoforged.fml.config.ModConfig.Type.COMMON, DynamicPortalsConfig.SPEC, "dynamicportals-common.toml");
 
         ModItems.register(modEventBus);
+        modEventBus.addListener(DynamicPortals::onCommonSetup);
         modEventBus.addListener(PortalRules::onConfigLoading);
         modEventBus.addListener(PortalRules::onConfigReloading);
         modEventBus.addListener(HubNetworkHandler::register);
 
         NeoForge.EVENT_BUS.register(new ProgressEvents());
         NeoForge.EVENT_BUS.register(new ModCommands());
+    }
+
+    private static void onCommonSetup(FMLCommonSetupEvent event) {
+        PortalRules.reload();
     }
 }

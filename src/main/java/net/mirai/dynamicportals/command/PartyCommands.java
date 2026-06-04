@@ -17,8 +17,6 @@ import net.minecraft.world.level.Level;
  * Handler class for all /dp party subcommands.
  */
 public class PartyCommands {
-    private static final int MIN_PASSWORD_LENGTH = 4;
-    private static final int MAX_PASSWORD_LENGTH = 32;
     private static final int MAX_PARTY_SIZE = 8;
     /**
      * Build the /dp party subtree.
@@ -27,26 +25,14 @@ public class PartyCommands {
         return Commands.literal("party")
             .requires(source -> source.getEntity() instanceof ServerPlayer)
             .then(Commands.literal("create")
-                .then(Commands.argument("password", StringArgumentType.word())
-                    .executes(context -> partyCreate(context.getSource(), StringArgumentType.getString(context, "password"), null))
-                    .then(Commands.argument("alias", StringArgumentType.greedyString())
-                        .executes(context -> partyCreate(
-                            context.getSource(),
-                            StringArgumentType.getString(context, "password"),
-                            StringArgumentType.getString(context, "alias")
-                        ))
-                    )
-                )
+                .executes(context -> partyCreate(context.getSource()))
             )
             .then(Commands.literal("join")
                 .then(Commands.argument("partyKey", StringArgumentType.word())
-                    .then(Commands.argument("password", StringArgumentType.word())
-                        .executes(context -> partyJoin(
-                            context.getSource(),
-                            StringArgumentType.getString(context, "partyKey"),
-                            StringArgumentType.getString(context, "password")
-                        ))
-                    )
+                    .executes(context -> partyJoin(
+                        context.getSource(),
+                        StringArgumentType.getString(context, "partyKey")
+                    ))
                 )
             )
             .then(Commands.literal("leave")
@@ -63,43 +49,20 @@ public class PartyCommands {
             );
     }
 
-    private static int partyCreate(CommandSourceStack source, String password, String alias) {
+    private static int partyCreate(CommandSourceStack source) {
         ServerPlayer player = (ServerPlayer) source.getEntity();
         if (player == null) {
             return 0;
         }
 
-        // Validate password
-        if (password.length() < MIN_PASSWORD_LENGTH) {
-            source.sendFailure(Component.literal("Password must be at least " + MIN_PASSWORD_LENGTH + " characters.")
-                .withStyle(ChatFormatting.RED));
-            return 0;
-        }
-
-        if (password.length() > MAX_PASSWORD_LENGTH) {
-            source.sendFailure(Component.literal("Password must be at most " + MAX_PASSWORD_LENGTH + " characters.")
-                .withStyle(ChatFormatting.RED));
-            return 0;
-        }
-
-        // Check if player is already in a party
         if (PartyStore.isInParty(player)) {
             source.sendFailure(Component.literal("You are already in a party. Leave your current party first.")
                 .withStyle(ChatFormatting.RED));
             return 0;
         }
 
-        String normalizedAlias = alias != null ? alias.trim() : null;
-        if (normalizedAlias != null && normalizedAlias.length() > 24) {
-            source.sendFailure(Component.literal("Party alias must be at most 24 characters.")
-                .withStyle(ChatFormatting.RED));
-            return 0;
-        }
-
-        // Create the party
-        UUID partyId = PartyStore.createParty(player, password, normalizedAlias);
+        UUID partyId = PartyStore.createParty(player);
         String shortCode = PartyStore.getPartyShortCode(player, partyId);
-        String partyAlias = PartyStore.getPartyAlias(player, partyId);
         
         source.sendSuccess(
             () -> Component.literal("Party created! Code: " + shortCode)
@@ -107,42 +70,21 @@ public class PartyCommands {
             false
         );
 
-        if (partyAlias != null) {
-            source.sendSuccess(
-                () -> Component.literal("Alias: " + partyAlias)
-                    .withStyle(ChatFormatting.AQUA),
-                false
-            );
-        }
-
         source.sendSuccess(
-            () -> Component.literal("Internal ID: " + partyId)
-                .withStyle(ChatFormatting.GRAY),
-            false
-        );
-        
-        source.sendSuccess(
-            () -> Component.literal("Share this with others: /dp party join " + shortCode + " <password>")
+            () -> Component.literal("Share this with others: /dp party join " + shortCode)
                 .withStyle(ChatFormatting.AQUA),
-            false
-        );
-
-        source.sendSuccess(
-            () -> Component.literal("UUID also works: /dp party join " + partyId + " <password>")
-                .withStyle(ChatFormatting.GRAY),
             false
         );
 
         return 1;
     }
 
-    private static int partyJoin(CommandSourceStack source, String partyKey, String password) {
+    private static int partyJoin(CommandSourceStack source, String partyKey) {
         ServerPlayer player = (ServerPlayer) source.getEntity();
         if (player == null) {
             return 0;
         }
 
-        // Check if player is already in a party
         if (PartyStore.isInParty(player)) {
             source.sendFailure(Component.literal("You are already in a party. Leave your current party first.")
                 .withStyle(ChatFormatting.RED));
@@ -152,14 +94,12 @@ public class PartyCommands {
         PartyData partyData = PartyData.get(player.level());
         UUID partyId = PartyStore.resolvePartyId(player, partyKey);
 
-        // Check if party exists
         if (partyId == null || !partyData.partyExists(partyId)) {
-            source.sendFailure(Component.literal("Party not found. Use a valid UUID or party code.")
+            source.sendFailure(Component.literal("Party not found. Use a valid party code.")
                 .withStyle(ChatFormatting.RED));
             return 0;
         }
 
-        // Check party size limit
         Set<UUID> members = partyData.getPartyMembers(partyId);
         if (members.size() >= MAX_PARTY_SIZE) {
             source.sendFailure(Component.literal("Party is full (max " + MAX_PARTY_SIZE + " members).")
@@ -167,8 +107,7 @@ public class PartyCommands {
             return 0;
         }
 
-        // Try to join the party
-        if (PartyStore.joinParty(player, partyId, password)) {
+        if (PartyStore.joinParty(player, partyId)) {
             source.sendSuccess(
                 () -> Component.literal("Successfully joined the party!")
                     .withStyle(ChatFormatting.GREEN),
@@ -179,7 +118,7 @@ public class PartyCommands {
             ProgressNotifier.partyJoined(player, partyId, shortCode, partyAlias);
             return 1;
         } else {
-            source.sendFailure(Component.literal("Failed to join party. Party not found or incorrect password.")
+            source.sendFailure(Component.literal("Failed to join party.")
                 .withStyle(ChatFormatting.RED));
             return 0;
         }
@@ -325,12 +264,6 @@ public class PartyCommands {
             false
         );
 
-        source.sendSuccess(
-            () -> Component.literal("Internal ID: " + partyId)
-                .withStyle(ChatFormatting.GRAY),
-            false
-        );
-        
         source.sendSuccess(
             () -> Component.literal("Members: " + members.size()),
             false

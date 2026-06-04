@@ -13,8 +13,6 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public final class HubNetworkHandler {
-    private static final int MIN_PASSWORD_LENGTH = 4;
-    private static final int MAX_PASSWORD_LENGTH = 32;
     private static final int MAX_PARTY_SIZE = 8;
 
     private static final String ACTION_REFRESH = "refresh";
@@ -56,8 +54,8 @@ public final class HubNetworkHandler {
 
             ActionResult result = switch (payload.action()) {
                 case ACTION_REFRESH -> ActionResult.success("");
-                case ACTION_PARTY_CREATE -> handlePartyCreate(player, payload.arg0(), payload.arg1());
-                case ACTION_PARTY_JOIN -> handlePartyJoin(player, payload.arg0(), payload.arg1());
+                case ACTION_PARTY_CREATE -> handlePartyCreate(player);
+                case ACTION_PARTY_JOIN -> handlePartyJoin(player, payload.arg0());
                 case ACTION_PARTY_LEAVE -> handlePartyLeave(player);
                 case ACTION_PARTY_DISSOLVE -> handlePartyDissolve(player);
                 default -> ActionResult.failure("Unknown hub action: " + payload.action());
@@ -75,31 +73,23 @@ public final class HubNetworkHandler {
         PortalOverlayClientState.apply(payload);
     }
 
-    private static ActionResult handlePartyCreate(ServerPlayer player, String password, String alias) {
-        if (password.length() < MIN_PASSWORD_LENGTH) {
-            return ActionResult.failure("Password must be at least " + MIN_PASSWORD_LENGTH + " characters.");
-        }
-        if (password.length() > MAX_PASSWORD_LENGTH) {
-            return ActionResult.failure("Password must be at most " + MAX_PASSWORD_LENGTH + " characters.");
-        }
+    private static ActionResult handlePartyCreate(ServerPlayer player) {
         if (PartyStore.isInParty(player)) {
             return ActionResult.failure("You are already in a party.");
         }
 
-        String normalizedAlias = normalizeAlias(alias);
-        if (normalizedAlias != null && normalizedAlias.length() > 24) {
-            return ActionResult.failure("Party alias must be at most 24 characters.");
-        }
-
-        UUID partyId = PartyStore.createParty(player, password, normalizedAlias);
+        UUID partyId = PartyStore.createParty(player);
         String shortCode = PartyStore.getPartyShortCode(player, partyId);
         String code = shortCode == null ? partyId.toString() : shortCode;
         return ActionResult.success("Party created. Code: " + code);
     }
 
-    private static ActionResult handlePartyJoin(ServerPlayer player, String partyKey, String password) {
+    private static ActionResult handlePartyJoin(ServerPlayer player, String partyKey) {
         if (PartyStore.isInParty(player)) {
             return ActionResult.failure("You are already in a party.");
+        }
+        if (partyKey == null || partyKey.isBlank()) {
+            return ActionResult.failure("Enter a party code.");
         }
 
         PartyData partyData = PartyData.get(player.level());
@@ -113,8 +103,8 @@ public final class HubNetworkHandler {
             return ActionResult.failure("Party is full (max " + MAX_PARTY_SIZE + ").");
         }
 
-        if (!PartyStore.joinParty(player, partyId, password)) {
-            return ActionResult.failure("Failed to join party. Incorrect password.");
+        if (!PartyStore.joinParty(player, partyId)) {
+            return ActionResult.failure("Failed to join party.");
         }
 
         ProgressNotifier.partyJoined(player, partyId, partyData.getPartyShortCode(partyId), partyData.getPartyAlias(partyId));
@@ -151,24 +141,16 @@ public final class HubNetworkHandler {
         return ActionResult.success("Party dissolved.");
     }
 
-    private static String normalizeAlias(String alias) {
-        if (alias == null) {
-            return null;
-        }
-        String normalized = alias.trim();
-        return normalized.isEmpty() ? null : normalized;
-    }
-
     public static void requestRefreshFromClient() {
         PacketDistributor.sendToServer(new HubRequestPayload(ACTION_REFRESH, "", ""));
     }
 
-    public static void requestPartyCreateFromClient(String password, String alias) {
-        PacketDistributor.sendToServer(new HubRequestPayload(ACTION_PARTY_CREATE, safe(password), safe(alias)));
+    public static void requestPartyCreateFromClient() {
+        PacketDistributor.sendToServer(new HubRequestPayload(ACTION_PARTY_CREATE, "", ""));
     }
 
-    public static void requestPartyJoinFromClient(String partyKey, String password) {
-        PacketDistributor.sendToServer(new HubRequestPayload(ACTION_PARTY_JOIN, safe(partyKey), safe(password)));
+    public static void requestPartyJoinFromClient(String partyKey) {
+        PacketDistributor.sendToServer(new HubRequestPayload(ACTION_PARTY_JOIN, safe(partyKey), ""));
     }
 
     public static void requestPartyLeaveFromClient() {

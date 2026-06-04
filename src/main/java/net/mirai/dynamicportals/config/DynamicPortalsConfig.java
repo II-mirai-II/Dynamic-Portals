@@ -27,6 +27,8 @@ public final class DynamicPortalsConfig {
             "Dynamic Portals configuration.",
             "All gameplay rules are data-driven from this file.",
             "Players can freely edit requirements without recompiling the mod.",
+            "Rules that reference missing entity/item ids stay inactive instead of breaking progression.",
+            "This allows optional compatibility entries for other mods: install the mod and reload/restart to activate them.",
             "Format references:",
             "- Counter requirement: destination_dimension|target_id|count",
             "- Advancement requirement: destination_dimension|advancement_id",
@@ -65,6 +67,8 @@ public final class DynamicPortalsConfig {
                 "Mob/Boss kill requirements.",
                 "Format: destination_dimension|entity_id|count",
                 "Example: minecraft:the_nether|minecraft:zombie|10",
+                "If entity_id is not registered in the loaded mod set, that line is ignored at runtime.",
+                "You can keep optional modded mobs here; they activate when the providing mod is installed.",
                 "Defaults include Nether and End progression sets from the project specification.",
                 "Project default count: 23 lines (14 Nether + 9 End)."
             )
@@ -76,7 +80,8 @@ public final class DynamicPortalsConfig {
                 "Format: destination_dimension|item_id|count",
                 "Lines with namespace 'example' are illustrative and ignored on purpose.",
                 "Replace or remove illustrative lines to activate your own rules.",
-                "You may use items from any mod namespace."
+                "You may use items from any mod namespace.",
+                "If item_id is not registered in the loaded mod set, that line is ignored at runtime."
             )
             .defineList("itemRequirements", defaultItemRequirements(), DynamicPortalsConfig::isString);
 
@@ -96,6 +101,7 @@ public final class DynamicPortalsConfig {
                 "Format: destination_dimension|item_id",
                 "Default: magma cream unlocks Nether, chorus fruit unlocks End.",
                 "You can add modded items and custom destination dimensions here.",
+                "If item_id is not registered in the loaded mod set, that line is ignored at runtime.",
                 "Remove an entry here to disable that bypass path."
             )
             .defineList("consumeBypassItems", defaultConsumeBypassItems(), DynamicPortalsConfig::isString);
